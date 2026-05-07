@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: koperasilink-db
+    environment:
+      POSTGRES_DB: koperasilink
+      POSTGRES_USER: koperasi
+      POSTGRES_PASSWORD: koperasi_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koperasi -d koperasilink"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: koperasilink-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: koperasilink-api
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://koperasi:koperasi_dev@postgres:5432/koperasilink?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai:
+    build:
+      context: ../../services/ai
+      dockerfile: Dockerfile
+    container_name: koperasilink-ai
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://koperasi:koperasi_dev@postgres:5432/koperasilink
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+    container_name: koperasilink-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
