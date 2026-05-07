@@ -8,3 +8,4 @@ dist/
 services/ai/venv/
 __pycache__/
 *.pyc
+.turbo/
