@@ -4,26 +4,26 @@ import * as bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 const villages = [
-  { name: "Air Duku", subdistrict: "Curup Tengah", latitude: -3.454, longitude: 102.536 },
-  { name: "Air Meles Bawah", subdistrict: "Curup Timur", latitude: -3.458, longitude: 102.546 },
-  { name: "Air Meles Atas", subdistrict: "Curup Timur", latitude: -3.460, longitude: 102.550 },
-  { name: "Batu Galing", subdistrict: "Curup", latitude: -3.462, longitude: 102.520 },
-  { name: "Talang Rimbo Baru", subdistrict: "Curup Tengah", latitude: -3.448, longitude: 102.528 },
-  { name: "Talang Rimbo Lama", subdistrict: "Curup Tengah", latitude: -3.445, longitude: 102.525 },
-  { name: "Duku Ilir", subdistrict: "Curup Tengah", latitude: -3.450, longitude: 102.540 },
-  { name: "Duku Ulu", subdistrict: "Curup Tengah", latitude: -3.447, longitude: 102.542 },
-  { name: "Kesambi", subdistrict: "Padang Ulak Tanding", latitude: -3.410, longitude: 102.490 },
-  { name: "Teladan", subdistrict: "Curup", latitude: -3.470, longitude: 102.515 },
-  { name: "Pasar Baru", subdistrict: "Curup", latitude: -3.466, longitude: 102.518 },
-  { name: "Sukaraja", subdistrict: "Curup Timur", latitude: -3.455, longitude: 102.555 },
-  { name: "Karang Anyar", subdistrict: "Curup Timur", latitude: -3.452, longitude: 102.560 },
-  { name: "Perbo", subdistrict: "Curup", latitude: -3.475, longitude: 102.510 },
-  { name: "Timbul Rejo", subdistrict: "Curup", latitude: -3.478, longitude: 102.505 },
-  { name: "Pagar Gunung", subdistrict: "Padang Ulak Tanding", latitude: -3.420, longitude: 102.480 },
-  { name: "Sari Mulyo", subdistrict: "Padang Ulak Tanding", latitude: -3.430, longitude: 102.475 },
-  { name: "Campur Kenanga", subdistrict: "Padang Ulak Tanding", latitude: -3.415, longitude: 102.468 },
-  { name: "Karya Baru", subdistrict: "Curup Tengah", latitude: -3.443, longitude: 102.532 },
-  { name: "Taba Jambu", subdistrict: "Curup Tengah", latitude: -3.438, longitude: 102.535 },
+  { name: "Air Duku", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.454, longitude: 102.536 },
+  { name: "Air Meles Bawah", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.458, longitude: 102.546 },
+  { name: "Air Meles Atas", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.460, longitude: 102.550 },
+  { name: "Batu Galing", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.462, longitude: 102.520 },
+  { name: "Talang Rimbo Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.448, longitude: 102.528 },
+  { name: "Talang Rimbo Lama", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.445, longitude: 102.525 },
+  { name: "Duku Ilir", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.450, longitude: 102.540 },
+  { name: "Duku Ulu", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.447, longitude: 102.542 },
+  { name: "Kesambi", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.410, longitude: 102.490 },
+  { name: "Teladan", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.470, longitude: 102.515 },
+  { name: "Pasar Baru", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.466, longitude: 102.518 },
+  { name: "Sukaraja", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.455, longitude: 102.555 },
+  { name: "Karang Anyar", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.452, longitude: 102.560 },
+  { name: "Perbo", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.475, longitude: 102.510 },
+  { name: "Timbul Rejo", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.478, longitude: 102.505 },
+  { name: "Pagar Gunung", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.420, longitude: 102.480 },
+  { name: "Sari Mulyo", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.430, longitude: 102.475 },
+  { name: "Campur Kenanga", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.415, longitude: 102.468 },
+  { name: "Karya Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.443, longitude: 102.532 },
+  { name: "Taba Jambu", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.438, longitude: 102.535 },
 ];
 
 const commodities = [
@@ -43,14 +43,14 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Clean existing data
+  await prisma.aiRecommendation.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.inventory.deleteMany();
-  await prisma.aiRecommendation.deleteMany();
-  await prisma.commodity.deleteMany();
-  await prisma.village.deleteMany();
-  await prisma.oTP.deleteMany();
+  await prisma.village_users.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.commodity.deleteMany();
+  await prisma.village.deleteMany();
 
   // Seed villages
   for (const v of villages) {
@@ -76,6 +76,35 @@ async function main() {
     },
   });
   console.log(`  ✅ Demo user: 081234567890 / admin123`);
+
+  // Seed fake inventory for the first 10 villages and random commodities
+  console.log("🌱 Seeding inventory...");
+  const dbVillages = await prisma.village.findMany();
+  const dbCommodities = await prisma.commodity.findMany();
+
+  for (let i = 0; i < 15; i++) {
+    const v = dbVillages[Math.floor(Math.random() * dbVillages.length)];
+    const c = dbCommodities[Math.floor(Math.random() * dbCommodities.length)];
+    
+    // Random stock between 500 and 5000
+    const stock = Math.floor(Math.random() * 4500) + 500;
+    const capacity = stock + Math.floor(Math.random() * 2000);
+    const price = Math.floor(Math.random() * 15) * 1000 + 5000;
+
+    await prisma.inventory.upsert({
+      where: { villageId_commodityId: { villageId: v.id, commodityId: c.id } },
+      update: {},
+      create: {
+        villageId: v.id,
+        commodityId: c.id,
+        currentStock: stock,
+        capacity: capacity,
+        unitPrice: price,
+        qualityGrade: ["A", "B", "C"][Math.floor(Math.random() * 3)],
+      },
+    });
+  }
+  console.log("  ✅ Generated dummy inventory");
 
   console.log("✅ Seeding complete!");
 }

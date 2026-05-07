@@ -2,12 +2,11 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
-  BadRequestException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
-import { RegisterDto, LoginDto, VerifyOtpDto, RequestOtpDto } from "./dto/auth.dto";
+import { RegisterDto, LoginDto } from "./dto/auth.dto";
 
 @Injectable()
 export class AuthService {
@@ -27,19 +26,19 @@ export class AuthService {
         phone: dto.phone,
         email: dto.email,
         password: hashedPassword,
-        villageId: dto.villageId,
         role: "bumdes_operator",
+        verified: true, // Automatically verified since OTP is removed
       },
     });
 
-    // Send OTP after registration
-    await this.sendOtp(dto.phone);
+    // Link user to village if provided
+    if (dto.villageId) {
+      await this.prisma.village_users.create({
+        data: { userId: user.id, villageId: dto.villageId },
+      });
+    }
 
-    return {
-      message: "User created. Please verify your phone with OTP.",
-      userId: user.id,
-      phone: user.phone,
-    };
+    return this.generateTokens(user.id, user.phone, user.role);
   }
 
   async login(dto: LoginDto) {
@@ -51,58 +50,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException("Invalid credentials");
 
-    if (!user.verified) {
-      throw new UnauthorizedException("Phone not verified. Please verify OTP first.");
-    }
-
     return this.generateTokens(user.id, user.phone, user.role);
-  }
-
-  async sendOtp(phone: string) {
-    const code = "123456";
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    await this.prisma.oTP.create({
-      data: { phone, code, expiresAt },
-    });
-
-    return { message: "OTP sent", phone };
-  }
-
-  async requestOtp(dto: RequestOtpDto) {
-    return this.sendOtp(dto.phone);
-  }
-
-  async verifyOtp(dto: VerifyOtpDto) {
-    const otp = await this.prisma.oTP.findFirst({
-      where: {
-        phone: dto.phone,
-        code: dto.code,
-        used: false,
-        expiresAt: { gte: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!otp) {
-      throw new BadRequestException("Invalid or expired OTP");
-    }
-
-    await this.prisma.oTP.update({
-      where: { id: otp.id },
-      data: { used: true },
-    });
-
-    await this.prisma.user.updateMany({
-      where: { phone: dto.phone },
-      data: { verified: true },
-    });
-
-    const user = await this.prisma.user.findFirst({
-      where: { phone: dto.phone },
-    });
-
-    return this.generateTokens(user!.id, user!.phone, user!.role);
   }
 
   async refreshToken(oldToken: string) {

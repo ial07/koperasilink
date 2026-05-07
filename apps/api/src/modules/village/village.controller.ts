@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { VillageService } from "./village.service";
+import type { CreateVillageData } from "./village.service";
 
 @Controller("villages")
 @UseGuards(AuthGuard("jwt"))
@@ -8,13 +9,23 @@ export class VillageController {
   constructor(private villageService: VillageService) {}
 
   @Post()
-  create(@Body() data: { name: string; subdistrict: string; latitude: number; longitude: number }) {
+  create(@Body() data: CreateVillageData) {
     return this.villageService.create(data);
   }
 
   @Get()
-  findAll() {
-    return this.villageService.findAll();
+  findAll(
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+    @Query("limit") limit?: string,
+    @Query("page") page?: string,
+  ) {
+    return this.villageService.findAll({
+      search,
+      status,
+      limit: limit ? parseInt(limit) : undefined,
+      page: page ? parseInt(page) : undefined,
+    });
   }
 
   @Get(":id")

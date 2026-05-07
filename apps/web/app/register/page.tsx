@@ -21,14 +21,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await apiClient.post("/auth/register", { name, phone, password });
-      toast.success("Account created! Verify OTP: 123456");
-
-      // Auto-verify with dev OTP
-      const { data } = await apiClient.post("/auth/otp/verify", {
-        phone,
-        code: "123456",
-      });
+      const { data } = await apiClient.post("/auth/register", { name, phone, password });
+      toast.success("Account created!");
+      
       localStorage.setItem("token", data.accessToken);
       router.push("/dashboard");
     } catch (err: any) {
