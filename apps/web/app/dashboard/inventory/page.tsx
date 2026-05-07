@@ -57,14 +57,14 @@ export default function InventoryPage() {
   // Fetch villages for filter & form
   const { data: villagesData } = useQuery({
     queryKey: ['villages-list'],
-    queryFn: () => apiClient.get('/village', { params: { limit: 100 } }).then((r) => r.data),
+    queryFn: () => apiClient.get('/villages', { params: { limit: 100 } }).then((r) => r.data),
   });
 
   // Fetch commodities for form
   const { data: commoditiesData } = useQuery({
     queryKey: ['commodities-list'],
     queryFn: () =>
-      apiClient.get('/commodity', { params: { limit: 50 } }).then((r) => r.data),
+      apiClient.get('/commodities', { params: { limit: 50 } }).then((r) => r.data),
   });
 
   const villages = villagesData?.data ?? [];

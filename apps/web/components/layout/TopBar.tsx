@@ -39,7 +39,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {user?.villageId && (
           <div className="hidden md:flex items-center gap-2 mr-4 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 text-primary" />
-            <span>Village: {user.villageId.substring(0, 8)}</span>
+            <span>Village: {user.villageName || user.villageId.substring(0, 8)}</span>
           </div>
         )}
         

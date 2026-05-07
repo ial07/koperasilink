@@ -22,10 +22,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Fetch village relation to ensure fallback if direct villageId is null
     const villageUser = await this.prisma.village_users.findFirst({
       where: { userId: user.id },
+      include: { village: true }
     });
 
-    const villageId = user.villageId || villageUser?.villageId || null;
+    let villageId = user.villageId || villageUser?.villageId || null;
+    let villageName = villageUser?.village?.name || null;
 
-    return { id: user.id, phone: user.phone, role: user.role, name: user.name, villageId };
+    if (user.villageId && !villageName) {
+      const v = await this.prisma.village.findUnique({ where: { id: user.villageId } });
+      villageName = v?.name || null;
+    }
+
+    return { id: user.id, phone: user.phone, role: user.role, name: user.name, villageId, villageName };
   }
 }

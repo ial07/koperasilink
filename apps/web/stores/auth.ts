@@ -7,6 +7,7 @@ interface User {
   name: string;
   role: string;
   villageId: string | null;
+  villageName?: string | null;
 }
 
 interface AuthState {
