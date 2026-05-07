@@ -2,13 +2,15 @@ import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } f
 import { AuthGuard } from "@nestjs/passport";
 import { VillageService } from "./village.service";
 import type { CreateVillageData } from "./village.service";
+import { RolesGuard, Roles } from "../strategies/roles.guard";
 
 @Controller("villages")
-@UseGuards(AuthGuard("jwt"))
+@UseGuards(AuthGuard("jwt"), RolesGuard)
 export class VillageController {
   constructor(private villageService: VillageService) {}
 
   @Post()
+  @Roles("system_admin", "koperasi_admin")
   create(@Body() data: CreateVillageData) {
     return this.villageService.create(data);
   }
@@ -34,11 +36,13 @@ export class VillageController {
   }
 
   @Patch(":id")
+  @Roles("system_admin", "koperasi_admin")
   update(@Param("id") id: string, @Body() data: any) {
     return this.villageService.update(id, data);
   }
 
   @Delete(":id")
+  @Roles("system_admin", "koperasi_admin")
   remove(@Param("id") id: string) {
     return this.villageService.remove(id);
   }

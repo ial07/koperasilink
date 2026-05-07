@@ -107,7 +107,7 @@ getStatus(currentStock: number, capacity: number, minStock?: number, surplusThre
 }
 ```
 
-## Task 4.3: PostGIS Geospatial Service
+## Task 4.3: Geospatial Service (Pure SQL Haversine)
 
 **File: `apps/api/src/modules/geospatial/geospatial.service.ts`**
 ```typescript
@@ -121,17 +121,23 @@ export class GeospatialService {
   async findVillagesWithinRadius(lat: number, lng: number, radiusKm: number) {
     return this.prisma.$queryRaw`
       SELECT id, name, subdistrict, district, latitude, longitude,
-        ST_Distance(
-          ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
-        ) / 1000 AS distance_km
+        main_commodities, population,
+        (
+          6371 * acos(
+            cos(radians(${lat})) * cos(radians(latitude)) *
+            cos(radians(longitude) - radians(${lng})) +
+            sin(radians(${lat})) * sin(radians(latitude))
+          )
+        ) AS distance_km
       FROM villages
-      WHERE ST_DWithin(
-        ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
-        ${radiusKm * 1000}
-      )
-      AND status = 'active'
+      WHERE status = 'active'
+      AND (
+          6371 * acos(
+            cos(radians(${lat})) * cos(radians(latitude)) *
+            cos(radians(longitude) - radians(${lng})) +
+            sin(radians(${lat})) * sin(radians(latitude))
+          )
+        ) <= ${radiusKm}
       ORDER BY distance_km;
     `;
   }
@@ -139,7 +145,13 @@ export class GeospatialService {
   async getDistanceBetweenVillages(villageAId: string, villageBId: string) {
     return this.prisma.$queryRaw`
       SELECT 
-        ST_Distance(a.coordinates::geography, b.coordinates::geography) / 1000 AS distance_km
+        (
+          6371 * acos(
+            cos(radians(a.latitude)) * cos(radians(b.latitude)) *
+            cos(radians(b.longitude) - radians(a.longitude)) +
+            sin(radians(a.latitude)) * sin(radians(b.latitude))
+          )
+        ) AS distance_km
       FROM villages a, villages b
       WHERE a.id = ${villageAId} AND b.id = ${villageBId};
     `;
@@ -169,8 +181,13 @@ GET /api/v1/geospatial/distance?villageA=xxx&villageB=yyy       → Distance bet
 # Create migration or run raw SQL
 INSERT INTO village_routes (village_a_id, village_b_id, distance_km)
 SELECT a.id, b.id,
-  ST_Distance(ST_SetSRID(ST_MakePoint(a.longitude, a.latitude), 4326)::geography,
-              ST_SetSRID(ST_MakePoint(b.longitude, b.latitude), 4326)::geography) / 1000
+  (
+    6371 * acos(
+      cos(radians(a.latitude)) * cos(radians(b.latitude)) *
+      cos(radians(b.longitude) - radians(a.longitude)) +
+      sin(radians(a.latitude)) * sin(radians(b.latitude))
+    )
+  )
 FROM villages a
 CROSS JOIN villages b
 WHERE a.id < b.id

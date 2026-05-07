@@ -1,13 +1,23 @@
 "use client";
 
-import { Menu, Bell, User, Search, MapPin } from "lucide-react";
+import { Menu, Bell, User, Search, MapPin, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/stores/auth";
+import { useRouter } from "next/navigation";
 
 interface TopBarProps {
   onMenuClick: () => void;
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border/40 bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
       <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={onMenuClick}>
@@ -26,18 +36,31 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 mr-4 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span>Regional: Bengkulu</span>
-        </div>
+        {user?.villageId && (
+          <div className="hidden md:flex items-center gap-2 mr-4 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span>Village: {user.villageId.substring(0, 8)}</span>
+          </div>
+        )}
         
+        <div className="hidden sm:flex flex-col items-end mr-2">
+          <span className="text-xs font-semibold">{user?.name || "Guest"}</span>
+          <span className="text-[10px] text-muted-foreground uppercase">{user?.role?.replace("_", " ") || "Member"}</span>
+        </div>
+
         <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full">
           <Bell className="h-4 w-4" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive border border-background"></span>
         </Button>
         
-        <Button variant="secondary" size="icon" className="h-9 w-9 rounded-full bg-primary/10 text-primary hover:bg-primary/20">
-          <User className="h-4 w-4" />
+        <Button 
+          variant="secondary" 
+          size="icon" 
+          className="h-9 w-9 rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+          onClick={handleLogout}
+          title="Logout"
+        >
+          <LogOut className="h-4 w-4" />
         </Button>
       </div>
     </header>

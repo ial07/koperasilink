@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useAuthStore } from "@/stores/auth";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const { isHydrated, accessToken } = useAuthStore();
+
+  useEffect(() => {
+    if (isHydrated && !accessToken) {
+      router.push("/login");
+    }
+  }, [isHydrated, accessToken, router]);
+
+  if (!isHydrated || !accessToken) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="flex min-h-screen">

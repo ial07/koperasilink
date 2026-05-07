@@ -28,6 +28,7 @@ export class AuthService {
         password: hashedPassword,
         role: "bumdes_operator",
         verified: true, // Automatically verified since OTP is removed
+        villageId: dto.villageId || null,
       },
     });
 

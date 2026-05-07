@@ -54,6 +54,8 @@ model Village {
   inventory            Inventory[]
   sentTransactions     Transaction[]   @relation("SentTransactions")
   receivedTransactions Transaction[]   @relation("ReceivedTransactions")
+  aiRecommendationsSource AiRecommendation[] @relation("SourceVillage")
+  aiRecommendationsTarget AiRecommendation[] @relation("TargetVillage")
 
   @@index([status])
   @@index([district])
@@ -132,6 +134,7 @@ model Commodity {
 
   inventory    Inventory[]
   transactions Transaction[]
+  aiRecommendations AiRecommendation[]
 
   @@map("commodities")
 }
@@ -195,8 +198,11 @@ model Transaction {
 model AiRecommendation {
   id                    String   @id @default(uuid()) @db.Uuid
   sourceVillageId       String   @map("source_village_id") @db.Uuid
+  sourceVillage         Village  @relation("SourceVillage", fields: [sourceVillageId], references: [id])
   targetVillageId       String   @map("target_village_id") @db.Uuid
+  targetVillage         Village  @relation("TargetVillage", fields: [targetVillageId], references: [id])
   commodityId           String   @map("commodity_id") @db.Uuid
+  commodity             Commodity @relation(fields: [commodityId], references: [id])
   recommendedQuantity   Decimal  @map("recommended_quantity") @db.Decimal(12, 2)
   estimatedProfit       Decimal? @map("estimated_profit") @db.Decimal(12, 2)
   estimatedShippingCost Decimal? @map("estimated_shipping_cost") @db.Decimal(12, 2)

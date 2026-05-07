@@ -125,6 +125,21 @@ export class InventoryService {
     }));
   }
 
+  async findSurplusForCommodity(commodityId: string) {
+    // Finds all inventory for a given commodity where stock >= surplus threshold (default 70% capacity)
+    const items = await this.prisma.$queryRaw`
+      SELECT i.*, v.name as village_name, v.district, v.subdistrict, v.latitude, v.longitude
+      FROM inventory i
+      JOIN villages v ON i.village_id = v.id
+      WHERE i.commodity_id = ${commodityId}::uuid
+      AND v.status = 'active'
+      AND i.current_stock >= COALESCE(i.surplus_threshold, COALESCE(i.capacity, 0) * 0.7)
+      AND COALESCE(i.capacity, 0) > 0
+      ORDER BY i.current_stock DESC;
+    `;
+    return items;
+  }
+
   async create(dto: CreateInventoryDto) {
     // Validate: current_stock <= capacity
     if (dto.capacity !== undefined && dto.currentStock > dto.capacity) {

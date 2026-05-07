@@ -41,6 +41,9 @@ importers:
       '@prisma/client':
         specifier: 5.22.0
         version: 5.22.0(prisma@5.22.0)
+      axios:
+        specifier: ^1.16.0
+        version: 1.16.0
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0

@@ -17,7 +17,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
-    if (!user) throw new UnauthorizedException("User not found");
-    return { id: user.id, phone: user.phone, role: user.role, name: user.name };
+    if (!user || !user.isActive) throw new UnauthorizedException("User not found or inactive");
+    
+    // Fetch village relation to ensure fallback if direct villageId is null
+    const villageUser = await this.prisma.village_users.findFirst({
+      where: { userId: user.id },
+    });
+
+    const villageId = user.villageId || villageUser?.villageId || null;
+
+    return { id: user.id, phone: user.phone, role: user.role, name: user.name, villageId };
   }
 }

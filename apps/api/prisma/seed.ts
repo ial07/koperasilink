@@ -75,11 +75,50 @@ async function main() {
       verified: true,
     },
   });
-  console.log(`  ✅ Demo user: 081234567890 / admin123`);
+  console.log(`  ✅ Demo Admin: 081234567890 / admin123`);
+
+  // Seed Bumdes Operators
+  const dbVillages = await prisma.village.findMany();
+  
+  if (dbVillages.length >= 2) {
+    const village1 = dbVillages[0]; // Air Duku
+    const village2 = dbVillages[11]; // Sukaraja
+
+    // Operator Village 1
+    const op1 = await prisma.user.create({
+      data: {
+        name: `Operator ${village1.name}`,
+        phone: "081111111111",
+        password: hashedPassword,
+        role: "bumdes_operator",
+        verified: true,
+        villageId: village1.id,
+      },
+    });
+    await prisma.village_users.create({
+      data: { userId: op1.id, villageId: village1.id },
+    });
+    console.log(`  ✅ Demo Operator (${village1.name}): 081111111111 / admin123`);
+
+    // Operator Village 2
+    const op2 = await prisma.user.create({
+      data: {
+        name: `Operator ${village2.name}`,
+        phone: "082222222222",
+        password: hashedPassword,
+        role: "bumdes_operator",
+        verified: true,
+        villageId: village2.id,
+      },
+    });
+    await prisma.village_users.create({
+      data: { userId: op2.id, villageId: village2.id },
+    });
+    console.log(`  ✅ Demo Operator (${village2.name}): 082222222222 / admin123`);
+  }
 
   // Seed fake inventory for the first 10 villages and random commodities
   console.log("🌱 Seeding inventory...");
-  const dbVillages = await prisma.village.findMany();
   const dbCommodities = await prisma.commodity.findMany();
 
   for (let i = 0; i < 15; i++) {

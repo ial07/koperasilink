@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
 import { Providers } from "../providers";
+import { useAuthStore } from "@/stores/auth";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,6 +25,12 @@ export default function LoginPage() {
     try {
       const { data } = await apiClient.post("/auth/login", { phone, password });
       localStorage.setItem("token", data.accessToken);
+      
+      // Fetch user context
+      const meResponse = await apiClient.post("/auth/me");
+      
+      setAuth(meResponse.data, data.accessToken);
+      
       toast.success("Login successful!");
       router.push("/dashboard");
     } catch (err: any) {
