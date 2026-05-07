@@ -4,12 +4,13 @@ import { AppService } from "./app.service";
 import { AuthModule } from "./modules/auth/auth.module";
 import { VillageModule } from "./modules/village/village.module";
 import { CommodityModule } from "./modules/commodity/commodity.module";
+import { GeospatialModule } from "./modules/geospatial/geospatial.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { PrismaService } from "./modules/prisma/prisma.service";
 
 @Module({
-  imports: [AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule],
+  imports: [AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule, GeospatialModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
