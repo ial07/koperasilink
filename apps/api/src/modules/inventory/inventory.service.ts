@@ -125,6 +125,25 @@ export class InventoryService {
     }));
   }
 
+  async getSummaryByVillage() {
+    const result = await this.prisma.inventory.groupBy({
+      by: ['villageId'],
+      _sum: { currentStock: true },
+      _count: { commodityId: true },
+    });
+    const summary: Record<string, any> = {};
+    for (const row of result) {
+      const totalStock = Number(row._sum.currentStock || 0);
+      summary[row.villageId] = {
+        totalStock,
+        commodityCount: row._count.commodityId,
+        status:
+          totalStock > 1000 ? 'surplus' : totalStock < 200 ? 'shortage' : 'balanced',
+      };
+    }
+    return summary;
+  }
+
   async findSurplusForCommodity(commodityId: string) {
     // Finds all inventory for a given commodity where stock >= surplus threshold (default 70% capacity)
     const items = await this.prisma.$queryRaw`

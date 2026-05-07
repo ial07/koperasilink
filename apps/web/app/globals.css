@@ -146,6 +146,22 @@
   --sidebar-ring: hsl(350, 80%, 55%);
 }
 
+/* Fix Leaflet marker icon default */
+.leaflet-default-icon-path {
+  background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
+}
+
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+@media (max-width: 640px) {
+  .leaflet-container {
+    height: 400px !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

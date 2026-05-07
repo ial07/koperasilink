@@ -1,7 +1,16 @@
-"use client";
+'use client';
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Map } from "lucide-react";
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapView = dynamic(() => import('@/components/map/MapView'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[600px] items-center justify-center">
+      <Skeleton className="h-full w-full rounded-lg" />
+    </div>
+  ),
+});
 
 export default function MapPage() {
   return (
@@ -9,21 +18,10 @@ export default function MapPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Supply Map</h1>
         <p className="text-muted-foreground mt-1">
-          Geographic overview of village supply status
+          Color-coded markers show village supply status across Rejang Lebong
         </p>
       </div>
-
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center h-[500px] gap-4 text-muted-foreground">
-          <Map className="h-12 w-12 opacity-30" />
-          <div className="text-center">
-            <p className="font-medium">Map Coming in Phase 5</p>
-            <p className="text-sm mt-1">
-              Interactive Leaflet map with color-coded village markers will be added after PostGIS is enabled.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <MapView />
     </div>
   );
 }

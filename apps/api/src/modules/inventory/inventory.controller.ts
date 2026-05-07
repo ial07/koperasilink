@@ -26,6 +26,11 @@ export class InventoryController {
     return this.inventoryService.findAll(query);
   }
 
+  @Get('summary')
+  getSummary() {
+    return this.inventoryService.getSummaryByVillage();
+  }
+
   @Get('supply')
   findSurplus(@Query('commodityId') commodityId: string) {
     if (!commodityId) return { error: 'commodityId is required' };
