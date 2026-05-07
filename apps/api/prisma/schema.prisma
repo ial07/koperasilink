@@ -22,6 +22,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  village Village? @relation("UserVillage", fields: [villageId], references: [id])
 }
 
 model OTP {
@@ -39,4 +41,94 @@ model RefreshToken {
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model Village {
+  id            String  @id @default(cuid())
+  name          String
+  subdistrict   String
+  district      String  @default("Rejang Lebong")
+  province      String  @default("Bengkulu")
+  latitude      Float
+  longitude     Float
+  population    Int?
+  status        String  @default("active")
+  mainCommodity String?
+
+  users     User[]       @relation("UserVillage")
+  inventory Inventory[]
+  fromTransactions Transaction[] @relation("FromVillage")
+  toTransactions   Transaction[] @relation("ToVillage")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model Commodity {
+  id            String  @id @default(cuid())
+  name          String  @unique
+  nameLocal     String?
+  category      String
+  unit          String  @default("kg")
+  perishability String  @default("medium")
+  shelfLifeDays Int?
+
+  transactions Transaction[]
+  inventory    Inventory[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  villageId   String
+  commodityId String
+  currentStock Float
+  capacity    Float
+  lastUpdated DateTime @default(now())
+
+  village   Village   @relation(fields: [villageId], references: [id])
+  commodity Commodity @relation(fields: [commodityId], references: [id])
+
+  @@unique([villageId, commodityId])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id                 String    @id @default(cuid())
+  fromVillageId      String
+  toVillageId        String
+  commodityId        String
+  quantity           Float
+  unitPrice          Float     @default(0)
+  shippingCost       Float     @default(0)
+  status             String    @default("pending")
+  aiRecommended      Boolean   @default(false)
+  recommendationId   String?
+  createdBy          String
+  confirmedAt        DateTime?
+  shippedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  fromVillage Village   @relation("FromVillage", fields: [fromVillageId], references: [id])
+  toVillage   Village   @relation("ToVillage", fields: [toVillageId], references: [id])
+  commodity   Commodity @relation(fields: [commodityId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model AiRecommendation {
+  id              String   @id @default(cuid())
+  fromVillageId   String
+  toVillageId     String
+  commodityId     String
+  matchQty        Float
+  priorityScore   Float    @default(0)
+  estimatedProfit Float    @default(0)
+  status          String   @default("pending")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

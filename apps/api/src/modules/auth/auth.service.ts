@@ -17,9 +17,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
-    });
+    const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
     if (existing) throw new ConflictException("Phone already registered");
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -45,9 +43,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
-    });
+    const user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
     if (!user || !user.password) {
       throw new UnauthorizedException("Invalid credentials");
     }
@@ -63,10 +59,8 @@ export class AuthService {
   }
 
   async sendOtp(phone: string) {
-    // In production: send real SMS via Twilio/WhatsApp API
-    // For dev: always return OTP 123456
     const code = "123456";
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.oTP.create({
       data: { phone, code, expiresAt },
@@ -124,7 +118,6 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException("User not found");
 
-    // Delete old token
     await this.prisma.refreshToken.delete({ where: { id: stored.id } });
 
     return this.generateTokens(user.id, user.phone, user.role);
@@ -136,7 +129,6 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: "15m" });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
 
-    // Store refresh token
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await this.prisma.refreshToken.create({
       data: { userId, token: refreshToken, expiresAt },
