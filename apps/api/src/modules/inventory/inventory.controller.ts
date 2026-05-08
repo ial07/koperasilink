@@ -60,4 +60,10 @@ export class InventoryController {
   remove(@Param('id') id: string) {
     return this.inventoryService.remove(id);
   }
+
+  @Post(':id/record-monthly')
+  @Roles('system_admin', 'koperasi_admin', 'bumdes_operator')
+  recordMonthly(@Param('id') id: string) {
+    return this.inventoryService.recordMonthlySnapshot(id);
+  }
 }

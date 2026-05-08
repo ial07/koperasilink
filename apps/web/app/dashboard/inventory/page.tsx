@@ -226,6 +226,7 @@ export default function InventoryPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Monthly Demand</TableHead>
                   <TableHead className="text-right">Last Updated</TableHead>
+                  <TableHead className="w-20">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -267,6 +268,26 @@ export default function InventoryPage() {
                         {item.lastUpdated
                           ? new Date(item.lastUpdated).toLocaleDateString()
                           : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={async () => {
+                            try {
+                              await apiClient.post(`/inventory/${item.id}/record-monthly`);
+                              const { toast } = await import('sonner');
+                              toast.success(`Stok tercatat: ${item.village?.name} → ${item.commodity?.name}`);
+                              queryClient.invalidateQueries({ queryKey: ['trend-predictions'] });
+                            } catch (e: any) {
+                              const { toast } = await import('sonner');
+                              toast.error(e?.response?.data?.message || 'Gagal mencatat stok');
+                            }
+                          }}
+                        >
+                          📋 Catat
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

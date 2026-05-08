@@ -304,4 +304,51 @@ export class InventoryService {
     if (!existing) throw new NotFoundException('Inventory not found');
     return this.prisma.inventory.delete({ where: { id } });
   }
+
+  /**
+   * Catat stok saat ini ke InventoryHistory untuk analisa tren.
+   * Dipanggil operator tiap bulan: "Catat Stok Bulan Ini"
+   */
+  async recordMonthlySnapshot(id: string) {
+    const inv = await this.prisma.inventory.findUnique({
+      where: { id },
+      include: { village: true, commodity: true },
+    });
+    if (!inv) throw new NotFoundException('Inventory not found');
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // 1-indexed
+
+    const record = await this.prisma.inventoryHistory.upsert({
+      where: {
+        villageId_commodityId_recordedYear_recordedMonth: {
+          villageId: inv.villageId,
+          commodityId: inv.commodityId,
+          recordedYear: year,
+          recordedMonth: month,
+        },
+      },
+      update: {
+        recordedStock: Number(inv.currentStock),
+        source: 'manual',
+      },
+      create: {
+        villageId: inv.villageId,
+        commodityId: inv.commodityId,
+        recordedStock: Number(inv.currentStock),
+        recordedMonth: month,
+        recordedYear: year,
+        source: 'manual',
+      },
+    });
+
+    return {
+      message: 'Stok tercatat untuk analisa tren',
+      village: inv.village.name,
+      commodity: inv.commodity.name,
+      stock: Number(inv.currentStock),
+      month: `${year}-${String(month).padStart(2, '0')}`,
+    };
+  }
 }
