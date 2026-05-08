@@ -66,4 +66,10 @@ export class InventoryController {
   recordMonthly(@Param('id') id: string) {
     return this.inventoryService.recordMonthlySnapshot(id);
   }
+
+  @Post('record-all-monthly')
+  @Roles('system_admin', 'koperasi_admin', 'bumdes_operator')
+  recordAllMonthly(@Req() req: any) {
+    return this.inventoryService.recordAllMonthly(req.user);
+  }
 }

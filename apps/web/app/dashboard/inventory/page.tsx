@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { InventoryForm } from '@/components/forms/InventoryForm';
-import { Package, TrendingUp, TrendingDown, Search, Plus } from 'lucide-react';
+import { Package, TrendingUp, TrendingDown, Search, Plus, ClipboardCheck } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
 export default function InventoryPage() {
@@ -106,27 +106,48 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
           <p className="text-muted-foreground mt-1">
-            Real-time commodity stock across all villages
+            Stok komoditas per desa. Klik <strong>Catat Stok Bulan Ini</strong> setiap awal bulan agar AI bisa memprediksi kebutuhan bulan depan.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Stock
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Inventory Record</DialogTitle>
-            </DialogHeader>
-            <InventoryForm
-              villages={villages}
-              commodities={commodities}
-              onSuccess={handleSuccess}
-            />
-          </DialogContent>
-        </Dialog>
+        {/* Catat Sekali Klik + Add Stock */}
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={async () => {
+              try {
+                const res = await apiClient.post('/inventory/record-all-monthly');
+                const { toast } = await import('sonner');
+                toast.success(res?.data?.message || 'Semua stok berhasil dicatat!');
+                queryClient.invalidateQueries({ queryKey: ['trend-predictions'] });
+              } catch (e: any) {
+                const { toast } = await import('sonner');
+                toast.error(e?.response?.data?.message || 'Gagal mencatat stok');
+              }
+            }}
+          >
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Catat Stok Bulan Ini
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger>
+              <Button variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Stock
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Inventory Record</DialogTitle>
+              </DialogHeader>
+              <InventoryForm
+                villages={villages}
+                commodities={commodities}
+                onSuccess={handleSuccess}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats cards */}

@@ -351,4 +351,60 @@ export class InventoryService {
       month: `${year}-${String(month).padStart(2, '0')}`,
     };
   }
+
+  /**
+   * Catat SEMUA inventory milik user ke InventoryHistory sekaligus.
+   */
+  async recordAllMonthly(user: any) {
+    const where: any = {};
+    if (user && user.role === 'bumdes_operator' && user.villageId) {
+      where.villageId = user.villageId;
+    }
+
+    const inventories = await this.prisma.inventory.findMany({
+      where,
+      include: { village: true, commodity: true },
+    });
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const results: any[] = [];
+
+    for (const inv of inventories) {
+      const record = await this.prisma.inventoryHistory.upsert({
+        where: {
+          villageId_commodityId_recordedYear_recordedMonth: {
+            villageId: inv.villageId,
+            commodityId: inv.commodityId,
+            recordedYear: year,
+            recordedMonth: month,
+          },
+        },
+        update: {
+          recordedStock: Number(inv.currentStock),
+          source: 'bulk_manual',
+        },
+        create: {
+          villageId: inv.villageId,
+          commodityId: inv.commodityId,
+          recordedStock: Number(inv.currentStock),
+          recordedMonth: month,
+          recordedYear: year,
+          source: 'bulk_manual',
+        },
+      });
+      results.push({
+        village: inv.village.name,
+        commodity: inv.commodity.name,
+        stock: Number(inv.currentStock),
+      });
+    }
+
+    return {
+      message: `${results.length} komoditas tercatat untuk analisa tren bulan ${year}-${String(month).padStart(2, '0')}`,
+      count: results.length,
+      month: `${year}-${String(month).padStart(2, '0')}`,
+    };
+  }
 }
