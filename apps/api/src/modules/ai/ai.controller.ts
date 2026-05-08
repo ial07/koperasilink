@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, UseGuards, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards, Body, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AiService } from './ai.service';
 import { RolesGuard, Roles } from '../strategies/roles.guard';
@@ -21,8 +21,8 @@ export class AiController {
   }
 
   @Get('recommendations/pending')
-  getPending() {
-    return this.aiService.getPendingRecommendations();
+  getPending(@Req() req: any) {
+    return this.aiService.getPendingRecommendations(req.user);
   }
 
   @Post('recommendations/:id/accept')

@@ -143,9 +143,9 @@ export default function RecommendationsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2 text-sm font-medium">
-                      <span className="text-green-600 text-xs">Source Village {rec.sourceVillageId.substring(0,6)}</span>
+                      <span className="text-green-600 text-xs">{rec.sourceVillage?.name || "Unknown Village"}</span>
                       <span className="text-muted-foreground">→</span>
-                      <span className="text-red-600 text-xs">Target Village {rec.targetVillageId.substring(0,6)}</span>
+                      <span className="text-red-600 text-xs">{rec.targetVillage?.name || "Unknown Village"}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">

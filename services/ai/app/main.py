@@ -24,6 +24,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import os
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+
+INTERNAL_TOKEN = os.getenv("AI_SERVICE_TOKEN", "super-secret-internal-token-123")
+
+@app.middleware("http")
+async def verify_internal_token(request: Request, call_next):
+    if request.url.path.startswith("/api/v1/recommendations"):
+        token = request.headers.get("x-internal-token")
+        if token != INTERNAL_TOKEN:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized: Invalid or missing internal token"})
+    return await call_next(request)
+
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(reco_router, prefix="/api/v1")
 

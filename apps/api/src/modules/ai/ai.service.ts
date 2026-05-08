@@ -8,9 +8,13 @@ export class AiService {
 
   async generateRecommendations(maxResults: number = 10, radiusKm: number = 50.0) {
     try {
-      // Call FastAPI internal service
+      // Call Python FastAPI service
+      const internalToken = process.env.AI_SERVICE_TOKEN || 'super-secret-internal-token-123';
       const response = await axios.get(`http://localhost:8000/api/v1/recommendations/generate`, {
-        params: { max_results: maxResults, radius_km: radiusKm }
+        params: { max_results: maxResults, radius_km: radiusKm },
+        headers: {
+          'x-internal-token': internalToken
+        }
       });
 
       const data = response.data;
@@ -58,11 +62,22 @@ export class AiService {
     }
   }
 
-  async getPendingRecommendations() {
+  async getPendingRecommendations(user?: any) {
+    const whereClause: any = { status: 'pending' };
+
+    if (user && user.role === 'bumdes_operator' && user.villageId) {
+      whereClause.OR = [
+        { sourceVillageId: user.villageId },
+        { targetVillageId: user.villageId },
+      ];
+    }
+
     return this.prisma.aiRecommendation.findMany({
-      where: { status: 'pending' },
+      where: whereClause,
       include: {
-        commodity: true
+        commodity: true,
+        sourceVillage: true,
+        targetVillage: true,
       },
       orderBy: { priorityScore: 'desc' }
     });

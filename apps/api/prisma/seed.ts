@@ -196,6 +196,92 @@ async function main() {
     const pct = Math.round((inv.stock / inv.capacity) * 100);
     console.log(`  📦 ${village.name} → ${inv.commodityName}: ${inv.stock}/${inv.capacity} (${pct}%)`);
   }
+  console.log("🌱 Seeding AI Recommendations and Transactions...");
+
+  {
+    const recSambirejo = dbVillagesMap.get("Sambirejo");
+    const recAirDuku = dbVillagesMap.get("Air Duku");
+    const recSukaraja = dbVillagesMap.get("Sukaraja");
+    const recAirMelesBawah = dbVillagesMap.get("Air Meles Bawah");
+    const recTalangRimboBaru = dbVillagesMap.get("Talang Rimbo Baru");
+
+    const kopi = dbCommoditiesMap.get("Kopi Robusta");
+    const cabai = dbCommoditiesMap.get("Cabai Merah");
+    const jahe = dbCommoditiesMap.get("Jahe");
+    const bawang = dbCommoditiesMap.get("Bawang Merah");
+
+    if (recSambirejo && recAirDuku && recSukaraja && kopi && cabai) {
+      // Recommendation 1: Air Duku -> Sukaraja (Kopi)
+      await prisma.aiRecommendation.create({
+        data: {
+          sourceVillageId: recAirDuku.id,
+          targetVillageId: recSukaraja.id,
+          commodityId: kopi.id,
+          recommendedQuantity: 1000,
+          estimatedProfit: 5000000,
+          estimatedShippingCost: 150000,
+          priorityScore: 0.95,
+          distanceKm: 8.5,
+          sourcePrice: 40000,
+          status: "pending",
+          triggeredBy: "system_cron",
+        },
+      });
+
+      // Recommendation 2: Sambirejo -> Talang Rimbo Baru (Cabai)
+      await prisma.aiRecommendation.create({
+        data: {
+          sourceVillageId: recSambirejo.id,
+          targetVillageId: recTalangRimboBaru.id,
+          commodityId: cabai.id,
+          recommendedQuantity: 150,
+          estimatedProfit: 750000,
+          estimatedShippingCost: 50000,
+          priorityScore: 0.88,
+          distanceKm: 4.2,
+          sourcePrice: 55000,
+          status: "pending",
+          triggeredBy: "system_cron",
+        },
+      });
+
+      // Transaction 1: Completed (Sambirejo -> Sukaraja, Cabai)
+      await prisma.transaction.create({
+        data: {
+          fromVillageId: recSambirejo.id,
+          toVillageId: recSukaraja.id,
+          commodityId: cabai.id,
+          quantity: 50,
+          unitPrice: 55000,
+          totalAmount: 2750000,
+          shippingCost: 45000,
+          status: "completed",
+          aiRecommended: true,
+          notes: "Urgent transfer",
+        },
+      });
+
+      // Transaction 2: In Transit (Air Duku -> Air Meles Bawah, Jahe)
+      if (jahe && recAirMelesBawah) {
+        await prisma.transaction.create({
+          data: {
+            fromVillageId: recAirDuku.id,
+            toVillageId: recAirMelesBawah.id,
+            commodityId: jahe.id,
+            quantity: 200,
+            unitPrice: 15000,
+            totalAmount: 3000000,
+            shippingCost: 80000,
+            status: "in_transit",
+            aiRecommended: true,
+            notes: "Scheduled delivery",
+          },
+        });
+      }
+
+      console.log("  ✅ Seeded 2 AI Recommendations and 2 Transactions");
+    }
+  }
 
   console.log("✅ Seeding complete!");
 }

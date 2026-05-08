@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, Req } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { TransactionService } from "./transaction.service";
 
@@ -9,10 +9,11 @@ export class TransactionController {
 
   @Get()
   findAll(
+    @Req() req: any,
     @Query("limit") limit?: string,
     @Query("page") page?: string,
   ) {
-    return this.transactionService.findAll({
+    return this.transactionService.findAll(req.user, {
       limit: limit ? parseInt(limit) : undefined,
       page: page ? parseInt(page) : undefined,
     });

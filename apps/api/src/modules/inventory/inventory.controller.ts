@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InventoryService } from './inventory.service';
@@ -22,8 +23,8 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Get()
-  findAll(@Query() query: QueryInventoryDto) {
-    return this.inventoryService.findAll(query);
+  findAll(@Req() req: any, @Query() query: QueryInventoryDto) {
+    return this.inventoryService.findAll(req.user, query);
   }
 
   @Get('summary')

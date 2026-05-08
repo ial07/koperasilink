@@ -27,20 +27,28 @@ export class InventoryService {
     return 'balanced';
   }
 
-  async findAll(query?: QueryInventoryDto) {
+  async findAll(user?: any, query?: QueryInventoryDto) {
     const {
       search,
       villageId,
       commodityId,
       status,
-      limit = 50,
-      page = 1,
+      limit,
+      page,
     } = query ?? {};
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 50;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
 
-    if (villageId) where.villageId = villageId;
+    // Role-based scope
+    if (user && user.role === 'bumdes_operator' && user.villageId) {
+      where.villageId = user.villageId;
+    } else if (villageId) {
+      where.villageId = villageId;
+    }
+
     if (commodityId) where.commodityId = commodityId;
     if (search) {
       where.OR = [
@@ -57,7 +65,7 @@ export class InventoryService {
       },
       orderBy: { lastUpdated: 'desc' },
       skip,
-      take: limit,
+      take: limitNum,
     });
 
     const total = await this.prisma.inventory.count({ where });
@@ -95,9 +103,9 @@ export class InventoryService {
     return {
       data: filtered,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
     };
   }
 

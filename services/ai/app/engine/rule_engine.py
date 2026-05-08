@@ -104,50 +104,57 @@ async def generate_recommendations(
     matches: List[MatchResult] = []
     seen_pairs = set()  # deduplicate same village pair + commodity
 
-    for surplus in surplus_items:
-        for shortage in shortage_items:
-            # Same commodity required
-            if shortage.commodity_id != surplus.commodity_id:
-                continue
+    # Group by commodity for much faster matching
+    surplus_by_commodity = {}
+    for s in surplus_items:
+        surplus_by_commodity.setdefault(s.commodity_id, []).append(s)
 
-            # Can't send to yourself
-            if surplus.village_id == shortage.village_id:
-                continue
+    shortage_by_commodity = {}
+    for s in shortage_items:
+        shortage_by_commodity.setdefault(s.commodity_id, []).append(s)
 
-            # Deduplication key
-            pair_key = (surplus.village_id, shortage.village_id, surplus.commodity_id)
-            if pair_key in seen_pairs:
-                continue
+    for commodity_id, surpluses in surplus_by_commodity.items():
+        shortages = shortage_by_commodity.get(commodity_id, [])
+        for surplus in surpluses:
+            for shortage in shortages:
+                # Can't send to yourself
+                if surplus.village_id == shortage.village_id:
+                    continue
 
-            # Distance filter
-            distance_km = haversine_distance(
-                surplus.latitude, surplus.longitude,
-                shortage.latitude, shortage.longitude,
-            )
-            if distance_km > radius:
-                continue
+                # Deduplication key
+                pair_key = (surplus.village_id, shortage.village_id, surplus.commodity_id)
+                if pair_key in seen_pairs:
+                    continue
 
-            # Calculate quantities
-            available = calculate_available_surplus(surplus)
-            needed = calculate_shortage_amount(shortage)
-            match_qty = min(available, needed)
+                # Distance filter
+                distance_km = haversine_distance(
+                    surplus.latitude, surplus.longitude,
+                    shortage.latitude, shortage.longitude,
+                )
+                if distance_km > radius:
+                    continue
 
-            if match_qty <= 0:
-                continue
+                # Calculate quantities
+                available = calculate_available_surplus(surplus)
+                needed = calculate_shortage_amount(shortage)
+                match_qty = min(available, needed)
 
-            # Profit estimation
-            profit, shipping = estimate_profit_and_shipping(
-                surplus.unit_price, match_qty, distance_km
-            )
+                if match_qty <= 0:
+                    continue
 
-            seen_pairs.add(pair_key)
-            matches.append(MatchResult(
-                from_village_id=surplus.village_id,
-                from_village_name=surplus.village_name,
-                to_village_id=shortage.village_id,
-                to_village_name=shortage.village_name,
-                commodity_id=surplus.commodity_id,
-                commodity_name=surplus.commodity_name,
+                # Profit estimation
+                profit, shipping = estimate_profit_and_shipping(
+                    surplus.unit_price, match_qty, distance_km
+                )
+
+                seen_pairs.add(pair_key)
+                matches.append(MatchResult(
+                    from_village_id=surplus.village_id,
+                    from_village_name=surplus.village_name,
+                    to_village_id=shortage.village_id,
+                    to_village_name=shortage.village_name,
+                    commodity_id=surplus.commodity_id,
+                    commodity_name=surplus.commodity_name,
                 available_qty=available,
                 requested_qty=needed,
                 match_qty=match_qty,

@@ -12,9 +12,11 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { RedisModule } from "./redis/redis.module";
 import { PrismaService } from "./modules/prisma/prisma.service";
 
+import { PrismaModule } from "./modules/prisma/prisma.module";
+
 @Module({
-  imports: [RedisModule, AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule, GeospatialModule, AiModule, DashboardModule],
+  imports: [PrismaModule, RedisModule, AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule, GeospatialModule, AiModule, DashboardModule],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [AppService],
 })
 export class AppModule {}
