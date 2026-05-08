@@ -39,10 +39,61 @@ const commodities = [
   { name: "Alpukat", nameLocal: "Avokad", category: "fruits", unit: "kg", perishability: "medium", shelfLifeDays: 7 },
 ];
 
+/**
+ * Setiap desa punya profil stok yang jelas:
+ * - Surplus: stok ≥ 70% capacity
+ * - Shortage: stok ≤ 20% capacity
+ * - Balanced: di antaranya
+ */
+const villageInventory: Array<{
+  villageIndex: number;
+  commodityName: string;
+  stock: number;
+  capacity: number;
+  price: number;
+}> = [
+  // ── SURPLUS ──
+  { villageIndex: 3,  commodityName: "Kopi Robusta", stock: 4200, capacity: 5000, price: 35000 },  // 84%
+  { villageIndex: 3,  commodityName: "Cabai Merah",  stock: 80,   capacity: 500,  price: 25000 },
+  { villageIndex: 8,  commodityName: "Kopi Robusta", stock: 3800, capacity: 4000, price: 32000 },  // 95%
+  { villageIndex: 8,  commodityName: "Jahe",         stock: 600,  capacity: 800,  price: 15000 },
+  { villageIndex: 1,  commodityName: "Kopi Robusta", stock: 2000, capacity: 3000, price: 34000 },  // 67%
+
+  // ── SHORTAGE ──
+  { villageIndex: 6,  commodityName: "Cabai Merah",  stock: 15,   capacity: 400,  price: 30000 },  // 4%
+  { villageIndex: 6,  commodityName: "Bawang Merah", stock: 30,   capacity: 300,  price: 20000 },  // 10%
+  { villageIndex: 14, commodityName: "Padi",         stock: 0.5,  capacity: 6,    price: 5500000 }, // 8%
+  { villageIndex: 14, commodityName: "Kangkung",     stock: 10,   capacity: 200,  price: 3000 },
+  { villageIndex: 0,  commodityName: "Cabai Merah",  stock: 10,   capacity: 300,  price: 27000 },
+  { villageIndex: 0,  commodityName: "Kopi Robusta", stock: 250,  capacity: 2000, price: 33000 },
+
+  // ── BALANCED ──
+  { villageIndex: 9,  commodityName: "Cabai Merah",  stock: 150,  capacity: 400,  price: 26000 },
+  { villageIndex: 9,  commodityName: "Bawang Merah", stock: 120,  capacity: 300,  price: 18000 },
+  { villageIndex: 12, commodityName: "Kopi Robusta", stock: 1500, capacity: 3000, price: 31000 },
+  { villageIndex: 12, commodityName: "Jahe",         stock: 300,  capacity: 600,  price: 14000 },
+  { villageIndex: 12, commodityName: "Kunyit",       stock: 400,  capacity: 700,  price: 12000 },
+  { villageIndex: 2,  commodityName: "Bayam",        stock: 80,   capacity: 150,  price: 4000 },
+  { villageIndex: 2,  commodityName: "Kangkung",     stock: 100,  capacity: 200,  price: 3500 },
+
+  // ── EXTRA ──
+  { villageIndex: 11, commodityName: "Padi",         stock: 8,    capacity: 10,   price: 5000000 },
+  { villageIndex: 11, commodityName: "Cabai Merah",  stock: 20,   capacity: 200,  price: 28000 },
+  { villageIndex: 4,  commodityName: "Padi",         stock: 6,    capacity: 8,    price: 5200000 },
+  { villageIndex: 5,  commodityName: "Pisang",       stock: 400,  capacity: 500,  price: 8000 },
+  { villageIndex: 7,  commodityName: "Alpukat",      stock: 60,   capacity: 200,  price: 15000 },
+  { villageIndex: 10, commodityName: "Jahe",         stock: 800,  capacity: 800,  price: 13000 },
+  { villageIndex: 13, commodityName: "Kunyit",       stock: 100,  capacity: 500,  price: 11000 },
+  { villageIndex: 15, commodityName: "Padi",         stock: 3,    capacity: 5,    price: 4800000 },
+  { villageIndex: 16, commodityName: "Cabai Merah",  stock: 200,  capacity: 350,  price: 24000 },
+  { villageIndex: 17, commodityName: "Kopi Robusta", stock: 2800, capacity: 3500, price: 36000 },
+  { villageIndex: 18, commodityName: "Bawang Merah", stock: 100,  capacity: 250,  price: 19000 },
+  { villageIndex: 19, commodityName: "Pisang",       stock: 200,  capacity: 300,  price: 7000 },
+];
+
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Clean existing data
   await prisma.aiRecommendation.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.inventory.deleteMany();
@@ -52,19 +103,16 @@ async function main() {
   await prisma.commodity.deleteMany();
   await prisma.village.deleteMany();
 
-  // Seed villages
   for (const v of villages) {
     await prisma.village.create({ data: v });
     console.log(`  ✅ Village: ${v.name}`);
   }
 
-  // Seed commodities
   for (const c of commodities) {
     await prisma.commodity.create({ data: c });
     console.log(`  ✅ Commodity: ${c.name}`);
   }
 
-  // Seed demo admin user
   const hashedPassword = await bcrypt.hash("admin123", 10);
   await prisma.user.create({
     data: {
@@ -77,14 +125,12 @@ async function main() {
   });
   console.log(`  ✅ Demo Admin: 081234567890 / admin123`);
 
-  // Seed Bumdes Operators
   const dbVillages = await prisma.village.findMany();
-  
-  if (dbVillages.length >= 2) {
-    const village1 = dbVillages[0]; // Air Duku
-    const village2 = dbVillages[11]; // Sukaraja
 
-    // Operator Village 1
+  if (dbVillages.length >= 2) {
+    const village1 = dbVillages[0];
+    const village2 = dbVillages[11];
+
     const op1 = await prisma.user.create({
       data: {
         name: `Operator ${village1.name}`,
@@ -100,7 +146,6 @@ async function main() {
     });
     console.log(`  ✅ Demo Operator (${village1.name}): 081111111111 / admin123`);
 
-    // Operator Village 2
     const op2 = await prisma.user.create({
       data: {
         name: `Operator ${village2.name}`,
@@ -117,33 +162,42 @@ async function main() {
     console.log(`  ✅ Demo Operator (${village2.name}): 082222222222 / admin123`);
   }
 
-  // Seed fake inventory for the first 10 villages and random commodities
+  // Seed meaningful inventory
   console.log("🌱 Seeding inventory...");
   const dbCommodities = await prisma.commodity.findMany();
+  const commodityMap = new Map(dbCommodities.map((c) => [c.name, c]));
 
-  for (let i = 0; i < 15; i++) {
-    const v = dbVillages[Math.floor(Math.random() * dbVillages.length)];
-    const c = dbCommodities[Math.floor(Math.random() * dbCommodities.length)];
-    
-    // Random stock between 500 and 5000
-    const stock = Math.floor(Math.random() * 4500) + 500;
-    const capacity = stock + Math.floor(Math.random() * 2000);
-    const price = Math.floor(Math.random() * 15) * 1000 + 5000;
+  for (const inv of villageInventory) {
+    const village = dbVillages[inv.villageIndex];
+    const commodity = commodityMap.get(inv.commodityName);
+    if (!village || !commodity) {
+      console.warn(`  ⚠️  Skipping: village idx ${inv.villageIndex} / ${inv.commodityName} not found`);
+      continue;
+    }
 
     await prisma.inventory.upsert({
-      where: { villageId_commodityId: { villageId: v.id, commodityId: c.id } },
-      update: {},
+      where: {
+        villageId_commodityId: {
+          villageId: village.id,
+          commodityId: commodity.id,
+        },
+      },
+      update: {
+        currentStock: inv.stock,
+        capacity: inv.capacity,
+        unitPrice: inv.price,
+      },
       create: {
-        villageId: v.id,
-        commodityId: c.id,
-        currentStock: stock,
-        capacity: capacity,
-        unitPrice: price,
-        qualityGrade: ["A", "B", "C"][Math.floor(Math.random() * 3)],
+        villageId: village.id,
+        commodityId: commodity.id,
+        currentStock: inv.stock,
+        capacity: inv.capacity,
+        unitPrice: inv.price,
       },
     });
+    const pct = Math.round((inv.stock / inv.capacity) * 100);
+    console.log(`  📦 ${village.name} → ${inv.commodityName}: ${inv.stock}/${inv.capacity} (${pct}%)`);
   }
-  console.log("  ✅ Generated dummy inventory");
 
   console.log("✅ Seeding complete!");
 }

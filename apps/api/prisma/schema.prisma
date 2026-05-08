@@ -1,134 +1,226 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // extensions = [postgis(version: "3")]  // Enable when using Docker with PostGIS image
 }
 
-model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?  @unique
-  phone     String   @unique
-  password  String?
-  role      String   @default("bumdes_operator")
-  villageId String?
-  verified  Boolean  @default(false)
+// ============================================
+// GEOGRAPHY DOMAIN
+// ============================================
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Region {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String    @db.VarChar(100)
+  type       String    @db.VarChar(20) // 'provinsi', 'kabupaten', 'kecamatan'
+  parentId   String?   @map("parent_id") @db.Uuid
+  parent     Region?   @relation("RegionHierarchy", fields: [parentId], references: [id])
+  children   Region[]  @relation("RegionHierarchy")
+  villages   Village[]
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  village Village? @relation("UserVillage", fields: [villageId], references: [id])
-}
-
-model OTP {
-  id        String   @id @default(cuid())
-  phone     String
-  code      String
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  @@map("regions")
 }
 
 model Village {
-  id            String  @id @default(cuid())
-  name          String
-  subdistrict   String
-  district      String  @default("Rejang Lebong")
-  province      String  @default("Bengkulu")
-  latitude      Float
-  longitude     Float
-  population    Int?
-  status        String  @default("active")
-  mainCommodity String?
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @db.VarChar(100)
+  code            String?  @unique @db.VarChar(20)
+  subdistrict     String   @db.VarChar(100)
+  district        String   @db.VarChar(100)
+  province        String   @default("Bengkulu") @db.VarChar(100)
+  latitude        Float
+  longitude       Float
+  population      Int?
+  mainCommodities String[] @map("main_commodities")
+  hasColdStorage  Boolean  @default(false) @map("has_cold_storage")
+  contactPhone    String?  @map("contact_phone") @db.VarChar(20)
+  regionId        String?  @map("region_id") @db.Uuid
+  region          Region?  @relation(fields: [regionId], references: [id])
+  status          String   @default("active") @db.VarChar(20) // 'active', 'inactive', 'pending'
+  // geom         Unsupported("geometry(Point, 4326)")?  // Enable with PostGIS Docker
 
-  users     User[]       @relation("UserVillage")
-  inventory Inventory[]
-  fromTransactions Transaction[] @relation("FromVillage")
-  toTransactions   Transaction[] @relation("ToVillage")
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  users                Village_users[]
+  inventory            Inventory[]
+  sentTransactions     Transaction[]   @relation("SentTransactions")
+  receivedTransactions Transaction[]   @relation("ReceivedTransactions")
+  aiRecommendationsSource AiRecommendation[] @relation("SourceVillage")
+  aiRecommendationsTarget AiRecommendation[] @relation("TargetVillage")
+
+  @@index([status])
+  @@index([district])
+  // @@index([geom], type: Gist)  // Enable with PostGIS Docker
+  @@map("villages")
 }
+
+// ============================================
+// IDENTITY DOMAIN
+// ============================================
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String    @db.VarChar(100)
+  email         String?   @unique @db.VarChar(255)
+  phone         String    @unique @db.VarChar(20)
+  password      String?   @map("password_hash") @db.VarChar(255)
+  role          String    @db.VarChar(30) // 'koperasi_admin', 'bumdes_operator', etc
+  villageId     String?   @map("village_id") @db.Uuid
+  authProvider  String    @default("otp") @map("auth_provider") @db.VarChar(20)
+  permissions   Json      @default("{}")
+  verified      Boolean   @default(false)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  villageRelation Village_users[]
+  refreshTokens   RefreshToken[]
+
+  @@map("users")
+}
+
+// Junction table to allow user -> village relation without circular dep
+model Village_users {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @map("user_id") @db.Uuid
+  villageId String  @map("village_id") @db.Uuid
+  user      User    @relation(fields: [userId], references: [id])
+  village   Village @relation(fields: [villageId], references: [id])
+
+  @@unique([userId, villageId])
+  @@map("village_users")
+}
+
+
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(512)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// REFERENCE DOMAIN
+// ============================================
 
 model Commodity {
-  id            String  @id @default(cuid())
-  name          String  @unique
-  nameLocal     String?
-  category      String
-  unit          String  @default("kg")
-  perishability String  @default("medium")
-  shelfLifeDays Int?
+  id             String      @id @default(uuid()) @db.Uuid
+  name           String      @unique @db.VarChar(100)
+  nameLocal      String?     @map("name_local") @db.VarChar(100)
+  category       String      @db.VarChar(30) // 'vegetables', 'fruits', etc.
+  unit           String      @db.VarChar(10) // 'kg', 'ton', etc.
+  perishability  String      @db.VarChar(10) // 'high', 'medium', 'low'
+  shelfLifeDays  Int?        @map("shelf_life_days")
+  iconUrl        String?     @map("icon_url") @db.VarChar(500)
+  createdAt      DateTime    @default(now()) @map("created_at")
 
-  transactions Transaction[]
   inventory    Inventory[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  transactions Transaction[]
+  aiRecommendations AiRecommendation[]
+
+  @@map("commodities")
 }
 
-model Inventory {
-  id          String   @id @default(cuid())
-  villageId   String
-  commodityId String
-  currentStock Float
-  capacity    Float
-  lastUpdated DateTime @default(now())
+// ============================================
+// COMMERCE DOMAIN
+// ============================================
 
-  village   Village   @relation(fields: [villageId], references: [id])
-  commodity Commodity @relation(fields: [commodityId], references: [id])
+model Inventory {
+  id               String    @id @default(uuid()) @db.Uuid
+  villageId        String    @map("village_id") @db.Uuid
+  village          Village   @relation(fields: [villageId], references: [id])
+  commodityId      String    @map("commodity_id") @db.Uuid
+  commodity        Commodity @relation(fields: [commodityId], references: [id])
+  currentStock     Decimal   @default(0) @map("current_stock") @db.Decimal(12, 2)
+  capacity         Decimal?  @db.Decimal(12, 2)
+  minStock         Decimal?  @default(0) @map("min_stock") @db.Decimal(12, 2)
+  surplusThreshold Decimal?  @map("surplus_threshold") @db.Decimal(12, 2)
+  harvestDate      DateTime? @map("harvest_date") @db.Date
+  nextHarvestDate  DateTime? @map("next_harvest_date") @db.Date
+  unitPrice        Decimal?  @map("unit_price") @db.Decimal(12, 2)
+  qualityGrade     String?   @map("quality_grade") @db.VarChar(10)
+
+  lastUpdated DateTime @default(now()) @map("last_updated")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@unique([villageId, commodityId])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([commodityId])
+  @@map("inventory")
 }
 
 model Transaction {
-  id                 String    @id @default(cuid())
-  fromVillageId      String
-  toVillageId        String
-  commodityId        String
-  quantity           Float
-  unitPrice          Float     @default(0)
-  shippingCost       Float     @default(0)
-  status             String    @default("pending")
-  aiRecommended      Boolean   @default(false)
-  recommendationId   String?
-  createdBy          String
-  confirmedAt        DateTime?
-  shippedAt          DateTime?
-  completedAt        DateTime?
-  cancelledAt        DateTime?
-  cancellationReason String?
+  id            String    @id @default(uuid()) @db.Uuid
+  fromVillageId String    @map("from_village_id") @db.Uuid
+  fromVillage   Village   @relation("SentTransactions", fields: [fromVillageId], references: [id])
+  toVillageId   String    @map("to_village_id") @db.Uuid
+  toVillage     Village   @relation("ReceivedTransactions", fields: [toVillageId], references: [id])
+  commodityId   String    @map("commodity_id") @db.Uuid
+  commodity     Commodity @relation(fields: [commodityId], references: [id])
+  quantity      Decimal   @db.Decimal(12, 2)
+  unitPrice     Decimal   @map("unit_price") @db.Decimal(12, 2)
+  totalAmount   Decimal   @map("total_amount") @db.Decimal(14, 2)
+  shippingCost  Decimal?  @default(0) @map("shipping_cost") @db.Decimal(12, 2)
+  status        String    @default("pending") @db.VarChar(20) // 'pending', 'completed', etc.
+  aiRecommended Boolean   @default(false) @map("ai_recommended")
+  notes         String?   @db.Text
 
-  fromVillage Village   @relation("FromVillage", fields: [fromVillageId], references: [id])
-  toVillage   Village   @relation("ToVillage", fields: [toVillageId], references: [id])
-  commodity   Commodity @relation(fields: [commodityId], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime? @map("confirmed_at")
+  shippedAt   DateTime? @map("shipped_at")
+  completedAt DateTime? @map("completed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
 }
 
 model AiRecommendation {
-  id              String   @id @default(cuid())
-  fromVillageId   String
-  toVillageId     String
-  commodityId     String
-  matchQty        Float
-  priorityScore   Float    @default(0)
-  estimatedProfit Float    @default(0)
-  status          String   @default("pending")
+  id                    String   @id @default(uuid()) @db.Uuid
+  sourceVillageId       String   @map("source_village_id") @db.Uuid
+  sourceVillage         Village  @relation("SourceVillage", fields: [sourceVillageId], references: [id])
+  targetVillageId       String   @map("target_village_id") @db.Uuid
+  targetVillage         Village  @relation("TargetVillage", fields: [targetVillageId], references: [id])
+  commodityId           String   @map("commodity_id") @db.Uuid
+  commodity             Commodity @relation(fields: [commodityId], references: [id])
+  recommendedQuantity   Decimal  @map("recommended_quantity") @db.Decimal(12, 2)
+  estimatedProfit       Decimal? @map("estimated_profit") @db.Decimal(12, 2)
+  estimatedShippingCost Decimal? @map("estimated_shipping_cost") @db.Decimal(12, 2)
+  priorityScore         Decimal  @map("priority_score") @db.Decimal(5, 3)
+  distanceKm            Decimal? @map("distance_km") @db.Decimal(8, 2)
+  sourcePrice           Decimal? @map("source_price") @db.Decimal(12, 2)
+  targetPrice           Decimal? @map("target_price") @db.Decimal(12, 2)
+  status                String   @default("pending") @db.VarChar(20) // pending/accepted/rejected
+  triggeredBy           String   @map("triggered_by") @db.VarChar(20)
+  explanation           Json?    // AI decision explanation for observability
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  rejectionReason String? @map("rejection_reason") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([sourceVillageId, targetVillageId, commodityId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ai_recommendations")
 }
