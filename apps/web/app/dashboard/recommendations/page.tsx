@@ -1,196 +1,201 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
-  Lightbulb, RefreshCw, MapPin, Package, TrendingUp, AlertCircle, Check, X
+  Lightbulb,
+  Check,
+  X,
+  RefreshCw,
+  Navigation,
+  DollarSign,
+  TrendingUp,
 } from "lucide-react";
-
-interface Recommendation {
-  id: string;
-  sourceVillageId: string;
-  targetVillageId: string;
-  commodityId: string;
-  commodity: { name: string };
-  recommendedQuantity: number;
-  distanceKm: number;
-  estimatedProfit: number;
-  priorityScore: number;
-  explanation: any;
-}
 
 export default function RecommendationsPage() {
   const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["recommendations", "pending"],
+  const { data, isLoading } = useQuery({
+    queryKey: ["recommendations", statusFilter],
     queryFn: () =>
-      apiClient.get("/ai/recommendations/pending").then((r) => r.data),
-    retry: 1,
+      apiClient
+        .get("/recommendations", { params: { status: statusFilter } })
+        .then((r) => r.data),
+    refetchInterval: 30_000,
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => apiClient.get("/ai/recommendations/generate?maxResults=10&radiusKm=50"),
+    mutationFn: () => apiClient.post("/recommendations/generate"),
     onSuccess: () => {
-      toast.success("Recommendations generated successfully");
-      queryClient.invalidateQueries({ queryKey: ["recommendations", "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+      toast.success("Recommendations generated");
     },
-    onError: () => toast.error("Failed to generate recommendations"),
+    onError: (err: any) =>
+      toast.error(err.response?.data?.message || "Generation failed"),
   });
 
   const acceptMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/ai/recommendations/${id}/accept`),
+    mutationFn: (id: string) => apiClient.patch(`/recommendations/${id}/accept`),
     onSuccess: () => {
-      toast.success("Recommendation accepted. Transaction created.");
-      queryClient.invalidateQueries({ queryKey: ["recommendations", "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+      toast.success("Recommendation accepted");
     },
-    onError: () => toast.error("Failed to accept recommendation"),
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/ai/recommendations/${id}/reject`, { reason: "User rejected" }),
+    mutationFn: (id: string) => apiClient.patch(`/recommendations/${id}/reject`),
     onSuccess: () => {
-      toast.success("Recommendation rejected.");
-      queryClient.invalidateQueries({ queryKey: ["recommendations", "pending"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     },
-    onError: () => toast.error("Failed to reject recommendation"),
   });
-
-  const recommendations: Recommendation[] = data ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Recommendations</h1>
-          <p className="text-muted-foreground mt-1">
-            Review and accept pending supply-demand matches
+          <h1 className="text-3xl font-bold tracking-tight">Recommendations</h1>
+          <p className="text-muted-foreground">
+            AI-suggested supply-demand matches
           </p>
         </div>
-        <Button onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} variant="outline" size="sm">
-          <RefreshCw className={`h-4 w-4 mr-2 ${generateMutation.isPending ? "animate-spin" : ""}`} />
-          Generate New
+        <Button
+          onClick={() => generateMutation.mutate()}
+          disabled={generateMutation.isPending}
+        >
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${generateMutation.isPending ? "animate-spin" : ""}`}
+          />
+          Generate
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Matches</CardTitle>
-            <Lightbulb className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "—" : recommendations.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Priority Score</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading || recommendations.length === 0
-                ? "—"
-                : (recommendations.reduce((s, r) => s + Number(r.priorityScore), 0) / recommendations.length).toFixed(1)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Search Radius</CardTitle>
-            <MapPin className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">50 km</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="all" onValueChange={(v) => setStatusFilter(v)}>
+        <TabsList>
+          <TabsTrigger value="all">All ({data?.total || 0})</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="accepted">Accepted</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+        </TabsList>
 
-      {isError ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 text-destructive opacity-60" />
-            <p className="text-sm">Failed to load recommendations.</p>
-          </CardContent>
-        </Card>
-      ) : isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-36 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : recommendations.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
-            <Package className="h-8 w-8 opacity-40" />
-            <p className="text-sm font-medium">No pending recommendations</p>
-            <p className="text-xs text-center max-w-xs">
-              Click Generate New to trigger the AI matching engine.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {recommendations.map((rec) => (
-            <Card key={rec.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <span className="text-green-600 text-xs">{rec.sourceVillage?.name || "Unknown Village"}</span>
-                      <span className="text-muted-foreground">→</span>
-                      <span className="text-red-600 text-xs">{rec.targetVillage?.name || "Unknown Village"}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">
-                        <Package className="h-3 w-3 mr-1" />
-                        {rec.commodity?.name || "Unknown"}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {Number(rec.recommendedQuantity).toFixed(1)} units
-                      </span>
-                    </div>
-                    {rec.explanation?.reasoning && (
-                      <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2">
-                        {rec.explanation.reasoning}
-                      </p>
-                    )}
-                    <div className="pt-2 flex gap-2">
-                      <Button size="sm" variant="default" onClick={() => acceptMutation.mutate(rec.id)} disabled={acceptMutation.isPending || rejectMutation.isPending}>
-                        <Check className="h-4 w-4 mr-1" /> Accept
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => rejectMutation.mutate(rec.id)} disabled={acceptMutation.isPending || rejectMutation.isPending}>
-                        <X className="h-4 w-4 mr-1" /> Reject
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0 text-right">
-                    <div className="text-xl font-bold text-primary">
-                      {Number(rec.priorityScore).toFixed(1)}
-                      <span className="text-xs font-normal text-muted-foreground ml-1">score</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <MapPin className="inline h-3 w-3 mr-0.5" />
-                      {Number(rec.distanceKm).toFixed(1)} km
-                    </div>
-                    {Number(rec.estimatedProfit) > 0 && (
-                      <div className="text-xs text-green-600 font-medium">
-                        +Rp {Number(rec.estimatedProfit).toLocaleString()}
+        <TabsContent value={statusFilter} className="mt-4">
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : data?.data?.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Lightbulb className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p>
+                No recommendations yet. Click &quot;Generate&quot; to create AI
+                matches.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {data?.data?.map((rec: any) => {
+                const unit = rec.commodity?.unit || "kg";
+                return (
+                  <Card
+                    key={rec.id}
+                    className={rec.status !== "pending" ? "opacity-70" : ""}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">
+                          {rec.commodity?.name}
+                        </CardTitle>
+                        <Badge
+                          variant={
+                            rec.status === "accepted"
+                              ? "default"
+                              : rec.status === "rejected"
+                                ? "destructive"
+                                : "outline"
+                          }
+                        >
+                          {rec.status}
+                        </Badge>
                       </div>
+                      <CardDescription>
+                        {rec.sourceVillage?.name} → {rec.targetVillage?.name}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Navigation className="h-3 w-3 text-muted-foreground" />
+                          {rec.distanceKm
+                            ? `${Number(rec.distanceKm).toFixed(1)} km`
+                            : "—"}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3 text-muted-foreground" />
+                          {rec.recommendedQuantity
+                            ? `${Number(rec.recommendedQuantity).toLocaleString()} ${unit}`
+                            : "—"}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                          Score:{" "}
+                          {rec.priorityScore
+                            ? Number(rec.priorityScore).toFixed(1)
+                            : "—"}
+                        </div>
+                      </div>
+                      {rec.estimatedProfit > 0 && (
+                        <div className="mt-1 text-sm text-green-600">
+                          💰 Est. profit: Rp{" "}
+                          {Number(rec.estimatedProfit).toLocaleString()}
+                        </div>
+                      )}
+                    </CardContent>
+                    {rec.status === "pending" && (
+                      <CardFooter className="flex gap-2 pt-0">
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => acceptMutation.mutate(rec.id)}
+                        >
+                          <Check className="mr-1 h-4 w-4" /> Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => rejectMutation.mutate(rec.id)}
+                        >
+                          <X className="mr-1 h-4 w-4" /> Reject
+                        </Button>
+                      </CardFooter>
                     )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
