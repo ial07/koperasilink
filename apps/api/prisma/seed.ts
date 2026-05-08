@@ -4,26 +4,35 @@ import * as bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 const villages = [
-  { name: "Air Duku", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.454, longitude: 102.536 },
-  { name: "Air Meles Bawah", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.458, longitude: 102.546 },
-  { name: "Air Meles Atas", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.460, longitude: 102.550 },
-  { name: "Batu Galing", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.462, longitude: 102.520 },
-  { name: "Talang Rimbo Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.448, longitude: 102.528 },
-  { name: "Talang Rimbo Lama", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.445, longitude: 102.525 },
-  { name: "Duku Ilir", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.450, longitude: 102.540 },
-  { name: "Duku Ulu", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.447, longitude: 102.542 },
-  { name: "Kesambi", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.410, longitude: 102.490 },
-  { name: "Teladan", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.470, longitude: 102.515 },
-  { name: "Pasar Baru", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.466, longitude: 102.518 },
-  { name: "Sukaraja", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.455, longitude: 102.555 },
-  { name: "Karang Anyar", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.452, longitude: 102.560 },
-  { name: "Perbo", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.475, longitude: 102.510 },
-  { name: "Timbul Rejo", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.478, longitude: 102.505 },
-  { name: "Pagar Gunung", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.420, longitude: 102.480 },
-  { name: "Sari Mulyo", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.430, longitude: 102.475 },
-  { name: "Campur Kenanga", subdistrict: "Padang Ulak Tanding", district: "Rejang Lebong", latitude: -3.415, longitude: 102.468 },
-  { name: "Karya Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.443, longitude: 102.532 },
-  { name: "Taba Jambu", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.438, longitude: 102.535 },
+  // Selupu Rejang
+  { name: "Sambirejo", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.4077233, longitude: 102.6400074 },
+  { name: "Air Duku", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.4101511, longitude: 102.6377116 },
+  { name: "Air Meles Atas", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.474183, longitude: 102.573987 },
+  { name: "Karang Jaya", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.3777294, longitude: 102.6410565 },
+  { name: "Cawang Baru", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.4266144, longitude: 102.6014115 },
+  { name: "Cawang Lama", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.3905491, longitude: 102.5870105 },
+  { name: "Kali Padang", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.4150, longitude: 102.5950 },
+  { name: "Kampung Baru", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.3871883, longitude: 102.6042712 },
+  { name: "Kayu Manis", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.3598918, longitude: 102.5735968 },
+  { name: "Air Putih Kali Bandung", subdistrict: "Selupu Rejang", district: "Rejang Lebong", latitude: -3.4082407, longitude: 102.6292529 },
+  
+  // Curup Tengah
+  { name: "Talang Rimbo Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.4778894, longitude: 102.531911 },
+  { name: "Talang Rimbo Lama", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.4798, longitude: 102.5339 },
+  { name: "Batu Galing", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.4729143, longitude: 102.5418432 },
+  { name: "Karya Baru", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.4699489, longitude: 102.5525194 },
+  { name: "Air Bang", subdistrict: "Curup Tengah", district: "Rejang Lebong", latitude: -3.4758, longitude: 102.5299 },
+
+  // Curup Timur
+  { name: "Sukaraja", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.4624861, longitude: 102.537452 },
+  { name: "Karang Anyar", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.4559152, longitude: 102.5303959 },
+  { name: "Air Meles Bawah", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.4637067, longitude: 102.5429587 },
+  { name: "Talang Ulu", subdistrict: "Curup Timur", district: "Rejang Lebong", latitude: -3.4567217, longitude: 102.5576814 },
+  
+  // Curup
+  { name: "Pasar Baru", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.477865, longitude: 102.5328748 },
+  { name: "Timbul Rejo", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.4669355, longitude: 102.5696118 },
+  { name: "Dwi Tunggal", subdistrict: "Curup", district: "Rejang Lebong", latitude: -3.477477, longitude: 102.51308 },
 ];
 
 const commodities = [
@@ -39,56 +48,45 @@ const commodities = [
   { name: "Alpukat", nameLocal: "Avokad", category: "fruits", unit: "kg", perishability: "medium", shelfLifeDays: 7 },
 ];
 
-/**
- * Setiap desa punya profil stok yang jelas:
- * - Surplus: stok ≥ 70% capacity
- * - Shortage: stok ≤ 20% capacity
- * - Balanced: di antaranya
- */
 const villageInventory: Array<{
-  villageIndex: number;
+  villageName: string;
   commodityName: string;
   stock: number;
   capacity: number;
   price: number;
 }> = [
   // ── SURPLUS ──
-  { villageIndex: 3,  commodityName: "Kopi Robusta", stock: 4200, capacity: 5000, price: 35000 },  // 84%
-  { villageIndex: 3,  commodityName: "Cabai Merah",  stock: 80,   capacity: 500,  price: 25000 },
-  { villageIndex: 8,  commodityName: "Kopi Robusta", stock: 3800, capacity: 4000, price: 32000 },  // 95%
-  { villageIndex: 8,  commodityName: "Jahe",         stock: 600,  capacity: 800,  price: 15000 },
-  { villageIndex: 1,  commodityName: "Kopi Robusta", stock: 2000, capacity: 3000, price: 34000 },  // 67%
+  { villageName: "Sambirejo",  commodityName: "Kopi Robusta", stock: 4200, capacity: 5000, price: 35000 },
+  { villageName: "Sambirejo",  commodityName: "Cabai Merah",  stock: 450,  capacity: 500,  price: 25000 },
+  { villageName: "Air Duku",   commodityName: "Kopi Robusta", stock: 3800, capacity: 4000, price: 32000 },
+  { villageName: "Air Duku",   commodityName: "Jahe",         stock: 600,  capacity: 800,  price: 15000 },
+  { villageName: "Cawang Baru",commodityName: "Kopi Robusta", stock: 2000, capacity: 3000, price: 34000 },
 
   // ── SHORTAGE ──
-  { villageIndex: 6,  commodityName: "Cabai Merah",  stock: 15,   capacity: 400,  price: 30000 },  // 4%
-  { villageIndex: 6,  commodityName: "Bawang Merah", stock: 30,   capacity: 300,  price: 20000 },  // 10%
-  { villageIndex: 14, commodityName: "Padi",         stock: 0.5,  capacity: 6,    price: 5500000 }, // 8%
-  { villageIndex: 14, commodityName: "Kangkung",     stock: 10,   capacity: 200,  price: 3000 },
-  { villageIndex: 0,  commodityName: "Cabai Merah",  stock: 10,   capacity: 300,  price: 27000 },
-  { villageIndex: 0,  commodityName: "Kopi Robusta", stock: 250,  capacity: 2000, price: 33000 },
+  { villageName: "Talang Rimbo Baru", commodityName: "Cabai Merah",  stock: 15,   capacity: 400,  price: 30000 },
+  { villageName: "Talang Rimbo Baru", commodityName: "Bawang Merah", stock: 30,   capacity: 300,  price: 20000 },
+  { villageName: "Pasar Baru",        commodityName: "Padi",         stock: 0.5,  capacity: 6,    price: 5500000 },
+  { villageName: "Pasar Baru",        commodityName: "Kangkung",     stock: 10,   capacity: 200,  price: 3000 },
+  { villageName: "Sukaraja",          commodityName: "Cabai Merah",  stock: 10,   capacity: 300,  price: 27000 },
+  { villageName: "Sukaraja",          commodityName: "Kopi Robusta", stock: 250,  capacity: 2000, price: 33000 },
 
   // ── BALANCED ──
-  { villageIndex: 9,  commodityName: "Cabai Merah",  stock: 150,  capacity: 400,  price: 26000 },
-  { villageIndex: 9,  commodityName: "Bawang Merah", stock: 120,  capacity: 300,  price: 18000 },
-  { villageIndex: 12, commodityName: "Kopi Robusta", stock: 1500, capacity: 3000, price: 31000 },
-  { villageIndex: 12, commodityName: "Jahe",         stock: 300,  capacity: 600,  price: 14000 },
-  { villageIndex: 12, commodityName: "Kunyit",       stock: 400,  capacity: 700,  price: 12000 },
-  { villageIndex: 2,  commodityName: "Bayam",        stock: 80,   capacity: 150,  price: 4000 },
-  { villageIndex: 2,  commodityName: "Kangkung",     stock: 100,  capacity: 200,  price: 3500 },
+  { villageName: "Air Meles Bawah", commodityName: "Cabai Merah",  stock: 150,  capacity: 400,  price: 26000 },
+  { villageName: "Air Meles Bawah", commodityName: "Bawang Merah", stock: 120,  capacity: 300,  price: 18000 },
+  { villageName: "Air Meles Atas",  commodityName: "Kopi Robusta", stock: 1500, capacity: 3000, price: 31000 },
+  { villageName: "Air Meles Atas",  commodityName: "Jahe",         stock: 300,  capacity: 600,  price: 14000 },
+  { villageName: "Air Meles Atas",  commodityName: "Kunyit",       stock: 400,  capacity: 700,  price: 12000 },
+  { villageName: "Karang Anyar",    commodityName: "Bayam",        stock: 80,   capacity: 150,  price: 4000 },
+  { villageName: "Karang Anyar",    commodityName: "Kangkung",     stock: 100,  capacity: 200,  price: 3500 },
 
   // ── EXTRA ──
-  { villageIndex: 11, commodityName: "Padi",         stock: 8,    capacity: 10,   price: 5000000 },
-  { villageIndex: 11, commodityName: "Cabai Merah",  stock: 20,   capacity: 200,  price: 28000 },
-  { villageIndex: 4,  commodityName: "Padi",         stock: 6,    capacity: 8,    price: 5200000 },
-  { villageIndex: 5,  commodityName: "Pisang",       stock: 400,  capacity: 500,  price: 8000 },
-  { villageIndex: 7,  commodityName: "Alpukat",      stock: 60,   capacity: 200,  price: 15000 },
-  { villageIndex: 10, commodityName: "Jahe",         stock: 800,  capacity: 800,  price: 13000 },
-  { villageIndex: 13, commodityName: "Kunyit",       stock: 100,  capacity: 500,  price: 11000 },
-  { villageIndex: 15, commodityName: "Padi",         stock: 3,    capacity: 5,    price: 4800000 },
-  { villageIndex: 16, commodityName: "Cabai Merah",  stock: 200,  capacity: 350,  price: 24000 },
-  { villageIndex: 17, commodityName: "Kopi Robusta", stock: 2800, capacity: 3500, price: 36000 },
-  { villageIndex: 18, commodityName: "Bawang Merah", stock: 100,  capacity: 250,  price: 19000 },
-  { villageIndex: 19, commodityName: "Pisang",       stock: 200,  capacity: 300,  price: 7000 },
+  { villageName: "Timbul Rejo", commodityName: "Padi",         stock: 8,    capacity: 10,   price: 5000000 },
+  { villageName: "Timbul Rejo", commodityName: "Cabai Merah",  stock: 20,   capacity: 200,  price: 28000 },
+  { villageName: "Dwi Tunggal", commodityName: "Padi",         stock: 6,    capacity: 8,    price: 5200000 },
+  { villageName: "Kali Padang", commodityName: "Pisang",       stock: 400,  capacity: 500,  price: 8000 },
+  { villageName: "Kampung Baru",commodityName: "Alpukat",      stock: 60,   capacity: 200,  price: 15000 },
+  { villageName: "Cawang Lama", commodityName: "Jahe",         stock: 800,  capacity: 800,  price: 13000 },
+  { villageName: "Karya Baru",  commodityName: "Kunyit",       stock: 100,  capacity: 500,  price: 11000 },
 ];
 
 async function main() {
@@ -103,13 +101,17 @@ async function main() {
   await prisma.commodity.deleteMany();
   await prisma.village.deleteMany();
 
+  const dbVillagesMap = new Map();
   for (const v of villages) {
-    await prisma.village.create({ data: v });
+    const created = await prisma.village.create({ data: v });
+    dbVillagesMap.set(v.name, created);
     console.log(`  ✅ Village: ${v.name}`);
   }
 
+  const dbCommoditiesMap = new Map();
   for (const c of commodities) {
-    await prisma.commodity.create({ data: c });
+    const created = await prisma.commodity.create({ data: c });
+    dbCommoditiesMap.set(c.name, created);
     console.log(`  ✅ Commodity: ${c.name}`);
   }
 
@@ -125,53 +127,49 @@ async function main() {
   });
   console.log(`  ✅ Demo Admin: 081234567890 / admin123`);
 
-  const dbVillages = await prisma.village.findMany();
+  const sambirejo = dbVillagesMap.get("Sambirejo");
+  const airDuku = dbVillagesMap.get("Air Duku");
 
-  if (dbVillages.length >= 2) {
-    const village1 = dbVillages[0];
-    const village2 = dbVillages[11];
-
+  if (sambirejo && airDuku) {
     const op1 = await prisma.user.create({
       data: {
-        name: `Operator ${village1.name}`,
+        name: `Operator Sambirejo`,
         phone: "081111111111",
         password: hashedPassword,
         role: "bumdes_operator",
         verified: true,
-        villageId: village1.id,
+        villageId: sambirejo.id,
       },
     });
     await prisma.village_users.create({
-      data: { userId: op1.id, villageId: village1.id },
+      data: { userId: op1.id, villageId: sambirejo.id },
     });
-    console.log(`  ✅ Demo Operator (${village1.name}): 081111111111 / admin123`);
+    console.log(`  ✅ Demo Operator (Sambirejo): 081111111111 / admin123`);
 
     const op2 = await prisma.user.create({
       data: {
-        name: `Operator ${village2.name}`,
+        name: `Operator Air Duku`,
         phone: "082222222222",
         password: hashedPassword,
         role: "bumdes_operator",
         verified: true,
-        villageId: village2.id,
+        villageId: airDuku.id,
       },
     });
     await prisma.village_users.create({
-      data: { userId: op2.id, villageId: village2.id },
+      data: { userId: op2.id, villageId: airDuku.id },
     });
-    console.log(`  ✅ Demo Operator (${village2.name}): 082222222222 / admin123`);
+    console.log(`  ✅ Demo Operator (Air Duku): 082222222222 / admin123`);
   }
 
   // Seed meaningful inventory
   console.log("🌱 Seeding inventory...");
-  const dbCommodities = await prisma.commodity.findMany();
-  const commodityMap = new Map(dbCommodities.map((c) => [c.name, c]));
 
   for (const inv of villageInventory) {
-    const village = dbVillages[inv.villageIndex];
-    const commodity = commodityMap.get(inv.commodityName);
+    const village = dbVillagesMap.get(inv.villageName);
+    const commodity = dbCommoditiesMap.get(inv.commodityName);
     if (!village || !commodity) {
-      console.warn(`  ⚠️  Skipping: village idx ${inv.villageIndex} / ${inv.commodityName} not found`);
+      console.warn(`  ⚠️  Skipping: ${inv.villageName} / ${inv.commodityName} not found`);
       continue;
     }
 

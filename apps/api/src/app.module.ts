@@ -8,10 +8,12 @@ import { GeospatialModule } from "./modules/geospatial/geospatial.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { AiModule } from "./modules/ai/ai.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { RedisModule } from "./redis/redis.module";
 import { PrismaService } from "./modules/prisma/prisma.service";
 
 @Module({
-  imports: [AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule, GeospatialModule, AiModule],
+  imports: [RedisModule, AuthModule, VillageModule, CommodityModule, InventoryModule, TransactionModule, GeospatialModule, AiModule, DashboardModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

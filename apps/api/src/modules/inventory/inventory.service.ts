@@ -19,8 +19,8 @@ export class InventoryService {
     minStock?: number,
     surplusThreshold?: number,
   ): InventoryStatus {
-    const min = minStock ?? Math.floor(capacity * 0.2);
-    const surplus = surplusThreshold ?? Math.floor(capacity * 0.7);
+    const min = (minStock && minStock > 0) ? minStock : Math.floor(capacity * 0.2);
+    const surplus = (surplusThreshold && surplusThreshold > 0) ? surplusThreshold : Math.floor(capacity * 0.7);
 
     if (currentStock >= surplus) return 'surplus';
     if (currentStock <= min) return 'shortage';
