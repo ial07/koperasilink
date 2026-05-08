@@ -95,6 +95,7 @@ async function main() {
 
   await prisma.aiRecommendation.deleteMany();
   await prisma.transaction.deleteMany();
+  await prisma.inventoryHistory.deleteMany();
   await prisma.inventory.deleteMany();
   await prisma.village_users.deleteMany();
   await prisma.refreshToken.deleteMany();
@@ -213,33 +214,41 @@ async function main() {
     if (!village || !commodity) continue;
 
     // Generate history untuk 6 bulan terakhir
-    // Data dibuat secara teratur dengan variasi kecil
+    // Setiap kategori punya tren yang JELAS biar moving average-nya masuk akal:
+    //   SURPLUS  → 6 bln lalu: stock rendah, sekarang: stock tinggi (tren naik ➡️ surplus)
+    //   SHORTAGE → 6 bln lalu: stock tinggi, sekarang: stock rendah (tren turun ➡️ shortage)
+    //   BALANCED → stok stabil di sekitar nilai sekarang
     for (let m = 0; m < 6; m++) {
       let month = currentMonth - 5 + m;
       let year = currentYear;
       if (month <= 0) { month += 12; year -= 1; }
 
-      // Simulasikan stok historical: dari 6 bulan lalu sampai sekarang
-      // Desa surplus: tren stok naik/menetap
-      // Desa shortage: tren stok turun
-      const isSurplus = inv.stock >= (inv.demand ?? 0) * 1.5;
-      const isShortage = inv.stock >= 0 && inv.stock <= (inv.demand ?? 0) * 0.5;
+      const demand = inv.demand ?? 0;
+      const isSurplus = demand > 0 && inv.stock >= demand * 1.5;
+      const isShortage = demand > 0 && inv.stock <= demand * 0.8;
+      const currentStock = inv.stock;
 
-      // Progress factor: 0 (6 bln lalu) -> 1 (sekarang)
+      // Progress: 0 (6 bln lalu) → 1 (sekarang)
       const progress = (m + 1) / 6;
+      // Inverse progress: 1 (6 bln lalu) → 0 (sekarang)
+      const invProgress = 1 - progress;
+
       let historicalStock: number;
 
       if (isSurplus) {
-        // Tren naik pelan menuju stok sekarang
-        historicalStock = Math.round(inv.stock * (0.5 + progress * 0.5));
+        // SURPLUS: 6 bulan lalu stok pas-pasan, sekarang melimpah
+        // stok naik dari ~demand*1.0 ke demand*3+
+        const startStock = Math.max(demand * 1.1, currentStock * 0.2);
+        historicalStock = Math.round(startStock + (currentStock - startStock) * progress);
       } else if (isShortage) {
-        // Tren turun menuju stok sekarang (stok semakin sedikit)
-        const startStock = inv.stock * 3; // 6 bulan lalu stok masih banyak
-        historicalStock = Math.round(startStock * (1 - progress * 0.7));
+        // SHORTAGE: 6 bulan lalu stok masih cukup, sekarang menipis
+        // stok turun dari ~demand*1.3 ke stok sekarang
+        const startStock = Math.max(currentStock * 3, demand * 1.3);
+        historicalStock = Math.round(startStock + (currentStock - startStock) * progress);
       } else {
-        // Balanced: variasi normal
+        // BALANCED: stok relatif stabil, variasi kecil ±15%
         const variation = 0.85 + Math.random() * 0.3;
-        historicalStock = Math.round(inv.stock * variation);
+        historicalStock = Math.round(currentStock * variation);
       }
 
       // Pastikan gak negatif

@@ -159,17 +159,21 @@ export class TrendAnalysisService {
 
   /**
    * Klasifikasi: surplus/shortage/balanced berdasarkan stock vs predicted demand.
-   * - Surplus: stock >= demand * 1.5 (cukup >1.5 bulan)
-   * - Shortage: stock <= demand * 0.5 (kurang dari setengah bulan)
+   * - Surplus: stock >= demand * 1.2 (lebih dari 1.2 bulan kebutuhan)
+   * - Shortage: stock <= demand * 0.8 (kurang dari 80% kebutuhan)
    * - Balanced: di antaranya
+   * 
+   * Artinya:
+   *   surplus  = stok saat ini LEBIH dari cukup buat 1.2 bulan ke depan
+   *   shortage = stok saat ini KURANG dari cukup buat 0.8 bulan ke depan
    */
   private classifyStatus(
     currentStock: number,
     predictedDemand: number,
   ): "surplus" | "shortage" | "balanced" {
     if (predictedDemand <= 0) return "balanced";
-    if (currentStock >= predictedDemand * 1.5) return "surplus";
-    if (currentStock <= predictedDemand * 0.5) return "shortage";
+    if (currentStock >= predictedDemand * 1.2) return "surplus";
+    if (currentStock <= predictedDemand * 0.8) return "shortage";
     return "balanced";
   }
 }
