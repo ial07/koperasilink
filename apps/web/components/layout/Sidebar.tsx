@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/dashboard/recommendations", label: "Recommendations", icon: Lightbulb },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/villages", label: "Villages", icon: Users },
+  { href: "/dashboard/trend", label: "Trend Analysis", icon: BarChart3 },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

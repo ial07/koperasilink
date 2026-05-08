@@ -56,6 +56,7 @@ model Village {
   receivedTransactions Transaction[]   @relation("ReceivedTransactions")
   aiRecommendationsSource AiRecommendation[] @relation("SourceVillage")
   aiRecommendationsTarget AiRecommendation[] @relation("TargetVillage")
+  inventoryHistory InventoryHistory[]
 
   @@index([status])
   @@index([district])
@@ -135,6 +136,7 @@ model Commodity {
   inventory    Inventory[]
   transactions Transaction[]
   aiRecommendations AiRecommendation[]
+  inventoryHistory InventoryHistory[]
 
   @@map("commodities")
 }
@@ -165,6 +167,29 @@ model Inventory {
   @@unique([villageId, commodityId])
   @@index([commodityId])
   @@map("inventory")
+}
+
+/// Catatan riwayat stok bulanan per desa + komoditas.
+/// Digunakan buat analisa tren prediksi kebutuhan bulan depan.
+model InventoryHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  villageId    String   @map("village_id") @db.Uuid
+  village      Village  @relation(fields: [villageId], references: [id])
+  commodityId  String   @map("commodity_id") @db.Uuid
+  commodity    Commodity @relation(fields: [commodityId], references: [id])
+  recordedStock Decimal @map("recorded_stock") @db.Decimal(12, 2)
+  recordedMonth Int     @map("recorded_month") // 1-12
+  recordedYear  Int     @map("recorded_year")
+  source        String  @default("manual") @db.VarChar(20) // 'manual', 'system_import', 'transaction_auto'
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([villageId, commodityId, recordedYear, recordedMonth])
+  @@index([recordedYear, recordedMonth])
+  @@index([villageId])
+  @@map("inventory_history")
 }
 
 model Transaction {

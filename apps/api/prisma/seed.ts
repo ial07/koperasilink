@@ -199,6 +199,75 @@ async function main() {
     const pct = Math.round((inv.stock / inv.capacity) * 100);
     console.log(`  📦 ${village.name} → ${inv.commodityName}: ${inv.stock}/${inv.capacity} (${pct}%)`);
   }
+
+  console.log("🌱 Seeding inventory history (6 months trend)...");
+  await prisma.inventoryHistory.deleteMany();
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
+
+  for (const inv of villageInventory) {
+    const village = dbVillagesMap.get(inv.villageName);
+    const commodity = dbCommoditiesMap.get(inv.commodityName);
+    if (!village || !commodity) continue;
+
+    // Generate history untuk 6 bulan terakhir
+    // Data dibuat secara teratur dengan variasi kecil
+    for (let m = 0; m < 6; m++) {
+      let month = currentMonth - 5 + m;
+      let year = currentYear;
+      if (month <= 0) { month += 12; year -= 1; }
+
+      // Simulasikan stok historical: dari 6 bulan lalu sampai sekarang
+      // Desa surplus: tren stok naik/menetap
+      // Desa shortage: tren stok turun
+      const isSurplus = inv.stock >= (inv.demand ?? 0) * 1.5;
+      const isShortage = inv.stock >= 0 && inv.stock <= (inv.demand ?? 0) * 0.5;
+
+      // Progress factor: 0 (6 bln lalu) -> 1 (sekarang)
+      const progress = (m + 1) / 6;
+      let historicalStock: number;
+
+      if (isSurplus) {
+        // Tren naik pelan menuju stok sekarang
+        historicalStock = Math.round(inv.stock * (0.5 + progress * 0.5));
+      } else if (isShortage) {
+        // Tren turun menuju stok sekarang (stok semakin sedikit)
+        const startStock = inv.stock * 3; // 6 bulan lalu stok masih banyak
+        historicalStock = Math.round(startStock * (1 - progress * 0.7));
+      } else {
+        // Balanced: variasi normal
+        const variation = 0.85 + Math.random() * 0.3;
+        historicalStock = Math.round(inv.stock * variation);
+      }
+
+      // Pastikan gak negatif
+      historicalStock = Math.max(0, historicalStock);
+
+      await prisma.inventoryHistory.upsert({
+        where: {
+          villageId_commodityId_recordedYear_recordedMonth: {
+            villageId: village.id,
+            commodityId: commodity.id,
+            recordedYear: year,
+            recordedMonth: month,
+          },
+        },
+        update: { recordedStock: historicalStock },
+        create: {
+          villageId: village.id,
+          commodityId: commodity.id,
+          recordedStock: historicalStock,
+          recordedMonth: month,
+          recordedYear: year,
+          source: "seed",
+        },
+      });
+    }
+    console.log(`  📈 ${village.name} → ${commodity.name}: history 6 bulan`);
+  }
+
   console.log("🌱 Seeding AI Recommendations and Transactions...");
 
   {

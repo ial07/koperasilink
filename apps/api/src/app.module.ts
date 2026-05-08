@@ -11,6 +11,7 @@ import { AiModule } from "./modules/ai/ai.module";
 import { RecommendationModule } from "./modules/recommendation/recommendation.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthModule } from "./modules/health/health.module";
+import { TrendModule } from "./modules/trend/trend.module";
 import { RedisModule } from "./redis/redis.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -33,7 +34,8 @@ import { APP_GUARD } from '@nestjs/core';
     AiModule, 
     RecommendationModule,
     DashboardModule,
-    HealthModule
+    HealthModule,
+    TrendModule
   ],
   controllers: [AppController],
   providers: [
