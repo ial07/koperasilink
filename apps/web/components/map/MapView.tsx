@@ -120,39 +120,61 @@ export default function MapView() {
                   </div>
 
                   {/* Per komoditas */}
+                  {/* Per komoditas */}
                   {sorted.length > 0 && (
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Commodities
                       </div>
-                      {sorted.map((c: any) => (
-                        <div
-                          key={c.id}
-                          className="flex items-center justify-between gap-2 text-xs"
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: STATUS_COLORS[c.status] || '#6b7280' }}
-                            />
-                            <span className="truncate font-medium">{c.name}</span>
-                            <span className="text-muted-foreground">
-                              {PERISH_ICONS[c.perishability] ?? ''}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono tabular-nums">
-                              {Number(c.currentStock).toLocaleString()}
-                              <span className="text-muted-foreground ml-0.5">{c.unit}</span>
-                            </span>
-                            {c.capacity && (
-                              <span className="text-[10px] text-muted-foreground">
-                                /{Number(c.capacity).toLocaleString()}
-                              </span>
+                      {sorted.map((c: any) => {
+                        const pct = c.capacity && c.capacity > 0
+                          ? Math.round((Number(c.currentStock) / Number(c.capacity)) * 100)
+                          : null;
+                        return (
+                          <div key={c.id} className="text-xs">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: STATUS_COLORS[c.status] || '#6b7280' }}
+                                />
+                                <span className="truncate font-medium">{c.name}</span>
+                                <span className="text-muted-foreground">
+                                  {PERISH_ICONS[c.perishability] ?? ''}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="font-mono tabular-nums">
+                                  {Number(c.currentStock).toLocaleString()}
+                                </span>
+                                <span className="text-muted-foreground">{c.unit}</span>
+                                {c.capacity && (
+                                  <span className="text-muted-foreground ml-0.5">
+                                    dari {Number(c.capacity).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Mini progress bar */}
+                            {pct !== null && (
+                              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${Math.min(pct, 100)}%`,
+                                    backgroundColor: STATUS_COLORS[c.status] || '#6b7280',
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {pct !== null && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {pct}% kapasitas — {STATUS_LABELS[c.status]}
+                              </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
