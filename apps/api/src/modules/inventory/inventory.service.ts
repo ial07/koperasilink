@@ -126,22 +126,102 @@ export class InventoryService {
   }
 
   async getSummaryByVillage() {
-    const result = await this.prisma.inventory.groupBy({
-      by: ['villageId'],
-      _sum: { currentStock: true },
-      _count: { commodityId: true },
+    // Ambil inventory per village, lengkap dengan commodity & computed status
+    const items = await this.prisma.inventory.findMany({
+      include: {
+        commodity: true,
+        village: true,
+      },
     });
-    const summary: Record<string, any> = {};
-    for (const row of result) {
-      const totalStock = Number(row._sum.currentStock || 0);
-      summary[row.villageId] = {
-        totalStock,
-        commodityCount: row._count.commodityId,
-        status:
-          totalStock > 1000 ? 'surplus' : totalStock < 200 ? 'shortage' : 'balanced',
+
+    // Group by village
+    const grouped: Record<
+      string,
+      {
+        villageInfo: { name: string; subdistrict: string };
+        commodities: Array<{
+          id: string;
+          name: string;
+          unit: string;
+          currentStock: number;
+          capacity: number | null;
+          status: string;
+          unitPrice: number | null;
+          perishability: string;
+        }>;
+        totalStock: number;
+        commodityCount: number;
+      }
+    > = {};
+
+    for (const item of items) {
+      if (!item.village || !item.commodity) continue;
+
+      const villageId = item.villageId;
+      const capacityNum = item.capacity ? Number(item.capacity) : 0;
+      const currentNum = Number(item.currentStock);
+      const computedStatus =
+        capacityNum > 0
+          ? this.getStatus(
+              currentNum,
+              capacityNum,
+              item.minStock ? Number(item.minStock) : undefined,
+              item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
+            )
+          : 'unknown';
+
+      if (!grouped[villageId]) {
+        grouped[villageId] = {
+          villageInfo: {
+            name: item.village.name,
+            subdistrict: item.village.subdistrict,
+          },
+          commodities: [],
+          totalStock: 0,
+          commodityCount: 0,
+        };
+      }
+
+      grouped[villageId].commodities.push({
+        id: item.commodity.id,
+        name: item.commodity.name,
+        unit: item.commodity.unit,
+        currentStock: currentNum,
+        capacity: item.capacity ? Number(item.capacity) : null,
+        status: computedStatus,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        perishability: item.commodity.perishability ?? 'medium',
+      });
+      grouped[villageId].totalStock += currentNum;
+      grouped[villageId].commodityCount += 1;
+    }
+
+    // Tentukan status desa berdasarkan komoditas paling kritis
+    // Prioritaskan: shortage > surplus > balanced > unknown
+    const result: Record<string, any> = {};
+
+    for (const [villageId, group] of Object.entries(grouped)) {
+      const hasShortage = group.commodities.some((c) => c.status === 'shortage');
+      const allSurplus = group.commodities.every((c) => c.status === 'surplus');
+
+      let villageStatus: string;
+      if (hasShortage) {
+        villageStatus = 'shortage';
+      } else if (allSurplus) {
+        villageStatus = 'surplus';
+      } else {
+        villageStatus = 'balanced';
+      }
+
+      result[villageId] = {
+        totalStock: group.totalStock,
+        commodityCount: group.commodityCount,
+        status: villageStatus,
+        commodities: group.commodities,
       };
     }
-    return summary;
+
+    return result;
   }
 
   async findSurplusForCommodity(commodityId: string) {

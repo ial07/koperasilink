@@ -19,6 +19,12 @@ const STATUS_LABELS: Record<string, string> = {
   shortage: 'Shortage',
 };
 
+const PERISH_ICONS: Record<string, string> = {
+  high: '🔴',
+  medium: '🟡',
+  low: '🟢',
+};
+
 function createIcon(status: string) {
   const color = STATUS_COLORS[status] || '#6b7280';
   return divIcon({
@@ -40,7 +46,7 @@ export default function MapView() {
   });
 
   const { data: inventorySummary } = useQuery({
-    queryKey: ['inventory-summary'],
+    queryKey: ['inventory-summary-v2'],
     queryFn: () => apiClient.get('/inventory/summary').then((r) => r.data || {}),
   });
 
@@ -65,7 +71,7 @@ export default function MapView() {
       <MapContainer
         center={center}
         zoom={zoom}
-        className="h-[600px] w-full"
+        className="h-[600px] w-full z-0"
         scrollWheelZoom={true}
       >
         <TileLayer
@@ -76,6 +82,13 @@ export default function MapView() {
           if (!v.latitude || !v.longitude) return null;
           const summary = inventorySummary?.[v.id];
           const status = summary?.status || 'balanced';
+          const commodities = summary?.commodities || [];
+          // Urutkan: shortage dulu, baru surplus, baru balanced
+          const sorted = [...commodities].sort((a: any, b: any) => {
+            const order: Record<string, number> = { shortage: 0, surplus: 1, balanced: 2, unknown: 3 };
+            return (order[a.status] ?? 3) - (order[b.status] ?? 3);
+          });
+
           return (
             <Marker
               key={v.id}
@@ -83,36 +96,82 @@ export default function MapView() {
               icon={createIcon(status)}
             >
               <Popup>
-                <div className="font-medium text-base">{v.name}</div>
-                <div className="text-sm text-muted-foreground">
-                  {v.subdistrict} · {v.district}
-                </div>
-                <div className="mt-1">
-                  <Badge
-                    variant={
-                      status === 'surplus'
-                        ? 'default'
-                        : status === 'shortage'
-                          ? 'destructive'
-                          : 'secondary'
-                    }
-                  >
-                    {STATUS_LABELS[status]}
-                  </Badge>
-                </div>
-                {summary && (
-                  <div className="mt-2 text-xs space-y-1 text-muted-foreground">
-                    <div>👥 {v.population?.toLocaleString() || 'N/A'} population</div>
-                    <div>📦 {summary.commodityCount || 0} commodities</div>
-                    <div>⚖️ {summary.totalStock || 0} kg total stock</div>
+                <div className="min-w-[200px]">
+                  {/* Header desa */}
+                  <div className="font-semibold text-base mb-1">{v.name}</div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    {v.subdistrict} · {v.district}
                   </div>
-                )}
+
+                  {/* Status desa */}
+                  <div className="mb-2">
+                    <Badge
+                      variant={
+                        status === 'surplus'
+                          ? 'default'
+                          : status === 'shortage'
+                            ? 'destructive'
+                            : 'secondary'
+                      }
+                      className="capitalize"
+                    >
+                      {STATUS_LABELS[status]}
+                    </Badge>
+                  </div>
+
+                  {/* Per komoditas */}
+                  {sorted.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Commodities
+                      </div>
+                      {sorted.map((c: any) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: STATUS_COLORS[c.status] || '#6b7280' }}
+                            />
+                            <span className="truncate font-medium">{c.name}</span>
+                            <span className="text-muted-foreground">
+                              {PERISH_ICONS[c.perishability] ?? ''}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono tabular-nums">
+                              {Number(c.currentStock).toLocaleString()}
+                              <span className="text-muted-foreground ml-0.5">{c.unit}</span>
+                            </span>
+                            {c.capacity && (
+                              <span className="text-[10px] text-muted-foreground">
+                                /{Number(c.capacity).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Ringkasan */}
+                  {summary && (
+                    <div className="mt-2 pt-2 border-t text-[11px] text-muted-foreground flex justify-between">
+                      <span>👥 {v.population?.toLocaleString() || 'N/A'}</span>
+                      <span>{summary.commodityCount} commodities</span>
+                    </div>
+                  )}
+                </div>
               </Popup>
             </Marker>
           );
         })}
       </MapContainer>
-      <div className="flex items-center gap-4 px-4 py-2 border-t bg-card text-sm">
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 px-4 py-2 border-t bg-card text-sm flex-wrap">
         <span className="font-medium">Legend:</span>
         <span className="flex items-center gap-1">
           <span className="h-3 w-3 rounded-full bg-green-500 inline-block" /> Surplus
@@ -122,6 +181,9 @@ export default function MapView() {
         </span>
         <span className="flex items-center gap-1">
           <span className="h-3 w-3 rounded-full bg-red-500 inline-block" /> Shortage
+        </span>
+        <span className="text-muted-foreground text-xs ml-2">
+          Desa status = komoditas paling kritis
         </span>
       </div>
     </div>
