@@ -54,39 +54,40 @@ const villageInventory: Array<{
   stock: number;
   capacity: number;
   price: number;
+  demand?: number;
 }> = [
-  // ── SURPLUS ──
-  { villageName: "Sambirejo",  commodityName: "Kopi Robusta", stock: 4200, capacity: 5000, price: 35000 },
-  { villageName: "Sambirejo",  commodityName: "Cabai Merah",  stock: 450,  capacity: 500,  price: 25000 },
-  { villageName: "Air Duku",   commodityName: "Kopi Robusta", stock: 3800, capacity: 4000, price: 32000 },
-  { villageName: "Air Duku",   commodityName: "Jahe",         stock: 600,  capacity: 800,  price: 15000 },
-  { villageName: "Cawang Baru",commodityName: "Kopi Robusta", stock: 2000, capacity: 3000, price: 34000 },
+  // ── SURPLUS (stock > monthly demand * 1.5) ──
+  { villageName: "Sambirejo",  commodityName: "Kopi Robusta", stock: 4200, capacity: 5000, price: 35000, demand: 400 },
+  { villageName: "Sambirejo",  commodityName: "Cabai Merah",  stock: 450,  capacity: 500,  price: 25000, demand: 80 },
+  { villageName: "Air Duku",   commodityName: "Kopi Robusta", stock: 3800, capacity: 4000, price: 32000, demand: 350 },
+  { villageName: "Air Duku",   commodityName: "Jahe",         stock: 600,  capacity: 800,  price: 15000, demand: 100 },
+  { villageName: "Cawang Baru",commodityName: "Kopi Robusta", stock: 2000, capacity: 3000, price: 34000, demand: 200 },
 
-  // ── SHORTAGE ──
-  { villageName: "Talang Rimbo Baru", commodityName: "Cabai Merah",  stock: 15,   capacity: 400,  price: 30000 },
-  { villageName: "Talang Rimbo Baru", commodityName: "Bawang Merah", stock: 30,   capacity: 300,  price: 20000 },
-  { villageName: "Pasar Baru",        commodityName: "Padi",         stock: 0.5,  capacity: 6,    price: 5500000 },
-  { villageName: "Pasar Baru",        commodityName: "Kangkung",     stock: 10,   capacity: 200,  price: 3000 },
-  { villageName: "Sukaraja",          commodityName: "Cabai Merah",  stock: 10,   capacity: 300,  price: 27000 },
-  { villageName: "Sukaraja",          commodityName: "Kopi Robusta", stock: 250,  capacity: 2000, price: 33000 },
+  // ── SHORTAGE (stock < monthly demand * 1.5) ──
+  { villageName: "Talang Rimbo Baru", commodityName: "Cabai Merah",  stock: 15,   capacity: 400,  price: 30000, demand: 200 },
+  { villageName: "Talang Rimbo Baru", commodityName: "Bawang Merah", stock: 30,   capacity: 300,  price: 20000, demand: 150 },
+  { villageName: "Pasar Baru",        commodityName: "Padi",         stock: 0.5,  capacity: 6,    price: 5500000, demand: 3 },
+  { villageName: "Pasar Baru",        commodityName: "Kangkung",     stock: 10,   capacity: 200,  price: 3000, demand: 120 },
+  { villageName: "Sukaraja",          commodityName: "Cabai Merah",  stock: 10,   capacity: 300,  price: 27000, demand: 100 },
+  { villageName: "Sukaraja",          commodityName: "Kopi Robusta", stock: 250,  capacity: 2000, price: 33000, demand: 500 },
 
   // ── BALANCED ──
-  { villageName: "Air Meles Bawah", commodityName: "Cabai Merah",  stock: 150,  capacity: 400,  price: 26000 },
-  { villageName: "Air Meles Bawah", commodityName: "Bawang Merah", stock: 120,  capacity: 300,  price: 18000 },
-  { villageName: "Air Meles Atas",  commodityName: "Kopi Robusta", stock: 1500, capacity: 3000, price: 31000 },
-  { villageName: "Air Meles Atas",  commodityName: "Jahe",         stock: 300,  capacity: 600,  price: 14000 },
-  { villageName: "Air Meles Atas",  commodityName: "Kunyit",       stock: 400,  capacity: 700,  price: 12000 },
-  { villageName: "Karang Anyar",    commodityName: "Bayam",        stock: 80,   capacity: 150,  price: 4000 },
-  { villageName: "Karang Anyar",    commodityName: "Kangkung",     stock: 100,  capacity: 200,  price: 3500 },
+  { villageName: "Air Meles Bawah", commodityName: "Cabai Merah",  stock: 150,  capacity: 400,  price: 26000, demand: 80 },
+  { villageName: "Air Meles Bawah", commodityName: "Bawang Merah", stock: 120,  capacity: 300,  price: 18000, demand: 70 },
+  { villageName: "Air Meles Atas",  commodityName: "Kopi Robusta", stock: 1500, capacity: 3000, price: 31000, demand: 600 },
+  { villageName: "Air Meles Atas",  commodityName: "Jahe",         stock: 300,  capacity: 600,  price: 14000, demand: 150 },
+  { villageName: "Air Meles Atas",  commodityName: "Kunyit",       stock: 400,  capacity: 700,  price: 12000, demand: 200 },
+  { villageName: "Karang Anyar",    commodityName: "Bayam",        stock: 80,   capacity: 150,  price: 4000, demand: 60 },
+  { villageName: "Karang Anyar",    commodityName: "Kangkung",     stock: 100,  capacity: 200,  price: 3500, demand: 80 },
 
   // ── EXTRA ──
-  { villageName: "Timbul Rejo", commodityName: "Padi",         stock: 8,    capacity: 10,   price: 5000000 },
-  { villageName: "Timbul Rejo", commodityName: "Cabai Merah",  stock: 20,   capacity: 200,  price: 28000 },
-  { villageName: "Dwi Tunggal", commodityName: "Padi",         stock: 6,    capacity: 8,    price: 5200000 },
-  { villageName: "Kali Padang", commodityName: "Pisang",       stock: 400,  capacity: 500,  price: 8000 },
-  { villageName: "Kampung Baru",commodityName: "Alpukat",      stock: 60,   capacity: 200,  price: 15000 },
-  { villageName: "Cawang Lama", commodityName: "Jahe",         stock: 800,  capacity: 800,  price: 13000 },
-  { villageName: "Karya Baru",  commodityName: "Kunyit",       stock: 100,  capacity: 500,  price: 11000 },
+  { villageName: "Timbul Rejo", commodityName: "Padi",         stock: 8,    capacity: 10,   price: 5000000, demand: 2 },
+  { villageName: "Timbul Rejo", commodityName: "Cabai Merah",  stock: 20,   capacity: 200,  price: 28000, demand: 50 },
+  { villageName: "Dwi Tunggal", commodityName: "Padi",         stock: 6,    capacity: 8,    price: 5200000, demand: 2 },
+  { villageName: "Kali Padang", commodityName: "Pisang",       stock: 400,  capacity: 500,  price: 8000, demand: 150 },
+  { villageName: "Kampung Baru",commodityName: "Alpukat",      stock: 60,   capacity: 200,  price: 15000, demand: 50 },
+  { villageName: "Cawang Lama", commodityName: "Jahe",         stock: 800,  capacity: 800,  price: 13000, demand: 80 },
+  { villageName: "Karya Baru",  commodityName: "Kunyit",       stock: 100,  capacity: 500,  price: 11000, demand: 150 },
 ];
 
 async function main() {
@@ -183,6 +184,7 @@ async function main() {
       update: {
         currentStock: inv.stock,
         capacity: inv.capacity,
+        monthlyDemand: inv.demand ?? 0,
         unitPrice: inv.price,
       },
       create: {
@@ -190,6 +192,7 @@ async function main() {
         commodityId: commodity.id,
         currentStock: inv.stock,
         capacity: inv.capacity,
+        monthlyDemand: inv.demand ?? 0,
         unitPrice: inv.price,
       },
     });

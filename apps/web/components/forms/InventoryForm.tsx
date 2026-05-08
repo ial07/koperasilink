@@ -18,11 +18,11 @@ import apiClient from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth';
 
 const inventorySchema = z.object({
-  villageId: z.string().min(1, 'Select a village'),
-  commodityId: z.string().min(1, 'Select a commodity'),
-  currentStock: z.coerce.number().min(0, 'Stock must be >= 0'),
-  capacity: z.coerce.number().min(0).optional(),
-  unitPrice: z.coerce.number().min(0).optional(),
+  villageId: z.string().min(1, 'Pilih desa'),
+  commodityId: z.string().min(1, 'Pilih komoditas'),
+  currentStock: z.coerce.number().min(0, 'Stok harus >= 0'),
+  capacity: z.coerce.number().min(0, 'Kapasitas harus >= 0').optional(),
+  monthlyDemand: z.coerce.number().min(0, 'Kebutuhan harus >= 0').optional(),
 });
 
 type InventoryFormData = z.infer<typeof inventorySchema>;
@@ -31,7 +31,7 @@ interface InventoryFormProps {
   villages: Array<{ id: string; name: string }>;
   commodities: Array<{ id: string; name: string; unit: string }>;
   onSuccess?: () => void;
-  initialData?: Partial<InventoryFormData>;
+  initialData?: Partial<InventoryFormData & { unitPrice?: number }>;
   editMode?: boolean;
   inventoryId?: string;
 }
@@ -59,7 +59,7 @@ export function InventoryForm({
       commodityId: initialData?.commodityId ?? '',
       currentStock: initialData?.currentStock ?? 0,
       capacity: initialData?.capacity ?? undefined,
-      unitPrice: initialData?.unitPrice ?? undefined,
+      monthlyDemand: initialData?.monthlyDemand ?? undefined,
     },
   });
 
@@ -69,27 +69,27 @@ export function InventoryForm({
     try {
       if (editMode && inventoryId) {
         await apiClient.put(`/inventory/${inventoryId}`, data);
-        toast.success('Stock updated');
+        toast.success('Stok berhasil diperbarui');
       } else {
         await apiClient.post('/inventory', data);
-        toast.success('Stock created');
+        toast.success('Stok berhasil ditambahkan');
       }
       onSuccess?.();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save inventory');
+      toast.error(err.response?.data?.message || 'Gagal menyimpan stok');
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Village selector */}
+      {/* Desa */}
       <div className="space-y-2">
-        <Label htmlFor="villageId">Village</Label>
+        <Label htmlFor="villageId">Desa</Label>
         {user?.role === 'bumdes_operator' ? (
           <>
             <Input 
               disabled 
-              value={user?.villageName || villages.find(v => v.id === user?.villageId)?.name || 'Your Village'} 
+              value={user?.villageName || villages.find(v => v.id === user?.villageId)?.name || 'Desa Anda'} 
               className="bg-muted text-muted-foreground"
             />
             <input type="hidden" {...register('villageId')} value={user.villageId || ''} />
@@ -105,7 +105,7 @@ export function InventoryForm({
                 disabled={editMode}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select village..." />
+                  <SelectValue placeholder="Pilih desa..." />
                 </SelectTrigger>
                 <SelectContent>
                   {villages.map((v) => (
@@ -123,9 +123,9 @@ export function InventoryForm({
         )}
       </div>
 
-      {/* Commodity selector */}
+      {/* Komoditas */}
       <div className="space-y-2">
-        <Label htmlFor="commodityId">Commodity</Label>
+        <Label htmlFor="commodityId">Komoditas</Label>
         <Controller
           control={control}
           name="commodityId"
@@ -136,7 +136,7 @@ export function InventoryForm({
               disabled={editMode}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select commodity..." />
+                <SelectValue placeholder="Pilih komoditas..." />
               </SelectTrigger>
               <SelectContent>
                 {commodities.map((c) => (
@@ -153,10 +153,10 @@ export function InventoryForm({
         )}
       </div>
 
-      {/* Stock input */}
+      {/* Stok saat ini */}
       <div className="space-y-2">
         <Label htmlFor="currentStock">
-          Current Stock
+          Stok Saat Ini
           {selectedCommodity && commodities.length > 0 &&
             ` (${commodities.find((c) => c.id === selectedCommodity)?.unit ?? ''})`}
         </Label>
@@ -165,48 +165,61 @@ export function InventoryForm({
           type="number"
           min={0}
           step="0.01"
-          placeholder="0"
+          placeholder="Contoh: 500"
           {...register('currentStock')}
         />
+        <p className="text-xs text-muted-foreground">
+          Jumlah stok komoditas yang tersedia saat ini.
+        </p>
         {errors.currentStock && (
           <p className="text-sm text-destructive">{errors.currentStock.message}</p>
         )}
       </div>
 
-      {/* Capacity input */}
+      {/* Kapasitas */}
       <div className="space-y-2">
-        <Label htmlFor="capacity">Capacity (max storage)</Label>
+        <Label htmlFor="capacity">Kapasitas Maksimal</Label>
         <Input
           id="capacity"
           type="number"
           min={0}
           step="0.01"
-          placeholder="Optional"
+          placeholder="Contoh: 1000"
           {...register('capacity')}
         />
+        <p className="text-xs text-muted-foreground">
+          Total kapasitas gudang atau tempat penyimpanan.
+        </p>
         {errors.capacity && (
           <p className="text-sm text-destructive">{errors.capacity.message}</p>
         )}
       </div>
 
-      {/* Price input */}
+      {/* Kebutuhan Bulanan — NEW */}
       <div className="space-y-2">
-        <Label htmlFor="unitPrice">Unit Price (IDR)</Label>
+        <Label htmlFor="monthlyDemand">
+          Kebutuhan Bulanan
+          {selectedCommodity && commodities.length > 0 &&
+            ` (${commodities.find((c) => c.id === selectedCommodity)?.unit ?? ''}/bulan)`}
+        </Label>
         <Input
-          id="unitPrice"
+          id="monthlyDemand"
           type="number"
           min={0}
-          step="100"
-          placeholder="Optional"
-          {...register('unitPrice')}
+          step="0.01"
+          placeholder="Contoh: 200"
+          {...register('monthlyDemand')}
         />
-        {errors.unitPrice && (
-          <p className="text-sm text-destructive">{errors.unitPrice.message}</p>
+        <p className="text-xs text-muted-foreground">
+          Perkiraan kebutuhan desa per bulan. AI akan membandingkan stok vs kebutuhan ini untuk menentukan surplus/shortage.
+        </p>
+        {errors.monthlyDemand && (
+          <p className="text-sm text-destructive">{errors.monthlyDemand.message}</p>
         )}
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving...' : editMode ? 'Update Stock' : 'Save Stock'}
+        {isSubmitting ? 'Menyimpan...' : editMode ? 'Perbarui Stok' : 'Simpan Stok'}
       </Button>
     </form>
   );

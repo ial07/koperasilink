@@ -224,7 +224,7 @@ export default function InventoryPage() {
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Capacity</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Unit Price (IDR)</TableHead>
+                  <TableHead className="text-right">Monthly Demand</TableHead>
                   <TableHead className="text-right">Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
@@ -254,9 +254,14 @@ export default function InventoryPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {item.unitPrice
-                          ? `Rp ${Number(item.unitPrice).toLocaleString()}`
+                        {item.monthlyDemand
+                          ? `${Number(item.monthlyDemand).toLocaleString()}`
                           : '—'}
+                        {item.monthlyDemand && item.commodity?.unit && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            /bln
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground text-xs">
                         {item.lastUpdated

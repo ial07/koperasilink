@@ -62,11 +62,23 @@ export class DashboardService {
       totalStock += Number(inv.currentStock);
       const stock = Number(inv.currentStock);
       const capacity = inv.capacity ? Number(inv.capacity) : null;
+      const monthlyDemand = inv.monthlyDemand ? Number(inv.monthlyDemand) : null;
       const minStock = inv.minStock ? Number(inv.minStock) : 0;
       const surplusThreshold = inv.surplusThreshold ? Number(inv.surplusThreshold) : (capacity ?? stock * 2) * 0.7;
 
       let status: "surplus" | "shortage" | "normal";
-      if (capacity && stock > surplusThreshold) {
+      if (monthlyDemand && monthlyDemand > 0) {
+        // Prioritaskan monthlyDemand
+        if (stock >= monthlyDemand * 1.5) {
+          status = "surplus";
+          villagesWithSurplus.add(inv.villageId);
+        } else if (stock <= monthlyDemand * 0.5) {
+          status = "shortage";
+          villagesWithShortage.add(inv.villageId);
+        } else {
+          status = "normal";
+        }
+      } else if (capacity && stock > surplusThreshold) {
         status = "surplus";
         villagesWithSurplus.add(inv.villageId);
       } else if (stock < minStock) {
@@ -154,6 +166,7 @@ export class DashboardService {
     for (const inv of inventory) {
       const stock = Number(inv.currentStock);
       const capacity = inv.capacity ? Number(inv.capacity) : null;
+      const monthlyDemand = inv.monthlyDemand ? Number(inv.monthlyDemand) : null;
       const minStock = inv.minStock ? Number(inv.minStock) : 0;
       const surplusThreshold = inv.surplusThreshold
         ? Number(inv.surplusThreshold)
@@ -162,7 +175,11 @@ export class DashboardService {
           : stock * 2 * 0.7;
 
       let status: "surplus" | "shortage" | "normal";
-      if (capacity && stock > surplusThreshold) status = "surplus";
+      if (monthlyDemand && monthlyDemand > 0) {
+        if (stock >= monthlyDemand * 1.5) status = "surplus";
+        else if (stock <= monthlyDemand * 0.5) status = "shortage";
+        else status = "normal";
+      } else if (capacity && stock > surplusThreshold) status = "surplus";
       else if (stock < minStock) status = "shortage";
       else status = "normal";
 

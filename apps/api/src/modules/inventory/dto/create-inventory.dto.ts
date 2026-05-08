@@ -20,4 +20,9 @@ export class CreateInventoryDto {
   @IsNumber()
   @Min(0)
   unitPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  monthlyDemand?: number;
 }

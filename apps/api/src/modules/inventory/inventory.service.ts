@@ -11,14 +11,27 @@ export class InventoryService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Compute surplus/shortage/balanced status based on stock vs capacity thresholds.
+   * Compute inventory status based on stock vs monthly demand.
+   * - Surplus: currentStock > monthlyDemand * 1.5 (stock mencukupi >1.5 bulan)
+   * - Shortage: currentStock < monthlyDemand * 0.5 (stock kurang dari 0.5 bulan)
+   * - Balanced: di antaranya
+   * Fallback ke capacity-based logic jika monthlyDemand tidak tersedia.
    */
   getStatus(
     currentStock: number,
     capacity: number,
     minStock?: number,
     surplusThreshold?: number,
+    monthlyDemand?: number,
   ): InventoryStatus {
+    // Prioritaskan monthlyDemand untuk menentukan status
+    if (monthlyDemand && monthlyDemand > 0) {
+      if (currentStock >= monthlyDemand * 1.5) return 'surplus';
+      if (currentStock <= monthlyDemand * 0.5) return 'shortage';
+      return 'balanced';
+    }
+
+    // Fallback: capacity-based
     const min = (minStock && minStock > 0) ? minStock : Math.floor(capacity * 0.2);
     const surplus = (surplusThreshold && surplusThreshold > 0) ? surplusThreshold : Math.floor(capacity * 0.7);
 
@@ -28,21 +41,13 @@ export class InventoryService {
   }
 
   async findAll(user?: any, query?: QueryInventoryDto) {
-    const {
-      search,
-      villageId,
-      commodityId,
-      status,
-      limit,
-      page,
-    } = query ?? {};
+    const { search, villageId, commodityId, status, limit, page } = query ?? {};
     const limitNum = Number(limit) || 50;
     const pageNum = Number(page) || 1;
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
 
-    // Role-based scope
     if (user && user.role === 'bumdes_operator' && user.villageId) {
       where.villageId = user.villageId;
     } else if (villageId) {
@@ -59,10 +64,7 @@ export class InventoryService {
 
     let raw = await this.prisma.inventory.findMany({
       where,
-      include: {
-        village: true,
-        commodity: true,
-      },
+      include: { village: true, commodity: true },
       orderBy: { lastUpdated: 'desc' },
       skip,
       take: limitNum,
@@ -70,7 +72,6 @@ export class InventoryService {
 
     const total = await this.prisma.inventory.count({ where });
 
-    // Attach computed status
     const data = raw.map((item) => {
       const capacityNum = item.capacity ? Number(item.capacity) : 0;
       const currentNum = Number(item.currentStock);
@@ -81,6 +82,7 @@ export class InventoryService {
               capacityNum,
               item.minStock ? Number(item.minStock) : undefined,
               item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
+              item.monthlyDemand ? Number(item.monthlyDemand) : undefined,
             )
           : 'unknown';
 
@@ -90,15 +92,13 @@ export class InventoryService {
         capacity: item.capacity ? Number(item.capacity) : null,
         minStock: item.minStock ? Number(item.minStock) : null,
         surplusThreshold: item.surplusThreshold ? Number(item.surplusThreshold) : null,
+        monthlyDemand: item.monthlyDemand ? Number(item.monthlyDemand) : null,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
         computedStatus,
       };
     });
 
-    // Filter by status client-side after computed
-    const filtered = status
-      ? data.filter((d) => d.computedStatus === status)
-      : data;
+    const filtered = status ? data.filter((d) => d.computedStatus === status) : data;
 
     return {
       data: filtered,
@@ -116,33 +116,34 @@ export class InventoryService {
       orderBy: { lastUpdated: 'desc' },
     });
 
-    return items.map((item) => ({
-      ...item,
-      currentStock: Number(item.currentStock),
-      capacity: item.capacity ? Number(item.capacity) : null,
-      unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
-      computedStatus:
-        item.capacity && Number(item.capacity) > 0
-          ? this.getStatus(
-              Number(item.currentStock),
-              Number(item.capacity),
-              item.minStock ? Number(item.minStock) : undefined,
-              item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
-            )
-          : 'unknown',
-    }));
+    return items.map((item) => {
+      const capacityNum = item.capacity ? Number(item.capacity) : 0;
+      const currentNum = Number(item.currentStock);
+      return {
+        ...item,
+        currentStock: currentNum,
+        capacity: item.capacity ? Number(item.capacity) : null,
+        monthlyDemand: item.monthlyDemand ? Number(item.monthlyDemand) : null,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        computedStatus:
+          capacityNum > 0
+            ? this.getStatus(
+                currentNum,
+                capacityNum,
+                item.minStock ? Number(item.minStock) : undefined,
+                item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
+                item.monthlyDemand ? Number(item.monthlyDemand) : undefined,
+              )
+            : 'unknown',
+      };
+    });
   }
 
   async getSummaryByVillage() {
-    // Ambil inventory per village, lengkap dengan commodity & computed status
     const items = await this.prisma.inventory.findMany({
-      include: {
-        commodity: true,
-        village: true,
-      },
+      include: { commodity: true, village: true },
     });
 
-    // Group by village
     const grouped: Record<
       string,
       {
@@ -175,6 +176,7 @@ export class InventoryService {
               capacityNum,
               item.minStock ? Number(item.minStock) : undefined,
               item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
+              item.monthlyDemand ? Number(item.monthlyDemand) : undefined,
             )
           : 'unknown';
 
@@ -204,8 +206,6 @@ export class InventoryService {
       grouped[villageId].commodityCount += 1;
     }
 
-    // Tentukan status desa berdasarkan komoditas paling kritis
-    // Prioritaskan: shortage > surplus > balanced > unknown
     const result: Record<string, any> = {};
 
     for (const [villageId, group] of Object.entries(grouped)) {
@@ -233,7 +233,6 @@ export class InventoryService {
   }
 
   async findSurplusForCommodity(commodityId: string) {
-    // Finds all inventory for a given commodity where stock >= surplus threshold (default 70% capacity)
     const items = await this.prisma.$queryRaw`
       SELECT i.*, v.name as village_name, v.district, v.subdistrict, v.latitude, v.longitude
       FROM inventory i
@@ -248,7 +247,6 @@ export class InventoryService {
   }
 
   async create(dto: CreateInventoryDto) {
-    // Validate: current_stock <= capacity
     if (dto.capacity !== undefined && dto.currentStock > dto.capacity) {
       throw new BadRequestException('Stock cannot exceed capacity');
     }
@@ -263,6 +261,7 @@ export class InventoryService {
       update: {
         currentStock: dto.currentStock,
         capacity: dto.capacity,
+        monthlyDemand: dto.monthlyDemand,
         unitPrice: dto.unitPrice,
         lastUpdated: new Date(),
       },
@@ -271,6 +270,7 @@ export class InventoryService {
         commodityId: dto.commodityId,
         currentStock: dto.currentStock,
         capacity: dto.capacity,
+        monthlyDemand: dto.monthlyDemand,
         unitPrice: dto.unitPrice,
         minStock: dto.capacity ? Math.floor(dto.capacity * 0.2) : undefined,
         surplusThreshold: dto.capacity ? Math.floor(dto.capacity * 0.7) : undefined,
@@ -283,7 +283,6 @@ export class InventoryService {
     const existing = await this.prisma.inventory.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Inventory not found');
 
-    // Validate stock <= capacity
     const newStock = dto.currentStock ?? Number(existing.currentStock);
     const effectiveCapacity = dto.capacity ?? (existing.capacity ? Number(existing.capacity) : undefined);
     if (effectiveCapacity !== undefined && newStock > effectiveCapacity) {
@@ -303,7 +302,6 @@ export class InventoryService {
   async remove(id: string) {
     const existing = await this.prisma.inventory.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Inventory not found');
-
     return this.prisma.inventory.delete({ where: { id } });
   }
 }
