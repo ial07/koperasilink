@@ -1,171 +1,247 @@
-"""
-Main rule engine: orchestrates surplus/shortage matching.
-Uses haversine distance calculation (works without PostGIS).
-PostGIS spatial queries are available when enabled in schema.
-"""
-import logging
-from typing import List
+from decimal import Decimal
+from typing import Any, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from app.engine.surplus_match import (
-    VillageInventory,
-    MatchResult,
-    calculate_available_surplus,
-    calculate_shortage_amount,
-)
-from app.engine.priority_scorer import rank_recommendations
-from app.engine.profit_estimator import estimate_profit_and_shipping, haversine_distance
-from app.core.config import settings
-
-logger = logging.getLogger(__name__)
+from app.engine.surplus_match import VillageInventory, MatchResult, classify_inventory
+from app.engine.priority_scorer import apply_perishability_score, rank_recommendations
+from app.engine.profit_estimator import estimate_profit
 
 
-async def fetch_inventory_data(db: AsyncSession) -> List[VillageInventory]:
-    """
-    Fetch all active village inventory data directly from PostgreSQL.
-    Classifies status inline using CASE expression for efficiency.
+async def fetch_inventory_data(
+    db: AsyncSession,
+    village_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Fetch inventory data joined with villages and commodities.
+
+    Uses raw SQL query mapping to snake_case table names.
     """
     query = text("""
         SELECT
-            v.id                                    AS village_id,
-            v.name                                  AS village_name,
-            c.id                                    AS commodity_id,
-            c.name                                  AS commodity_name,
-            CAST(i.current_stock AS FLOAT)          AS current_stock,
-            CAST(COALESCE(i.capacity, 0) AS FLOAT)  AS capacity,
-            CAST(COALESCE(i.min_stock, 0) AS FLOAT) AS min_stock,
-            CAST(COALESCE(i.surplus_threshold,
-                COALESCE(i.capacity, 0) * 0.7) AS FLOAT) AS surplus_threshold,
-            CAST(COALESCE(i.unit_price, 0) AS FLOAT) AS unit_price,
+            i.id AS inventory_id,
+            i.village_id,
+            v.name AS village_name,
+            v.subdistrict,
+            v.district,
             v.latitude,
             v.longitude,
+            i.commodity_id,
+            c.name AS commodity_name,
             c.perishability,
-            CASE
-                WHEN i.current_stock >= COALESCE(i.surplus_threshold, COALESCE(i.capacity, 0) * 0.7)
-                    THEN 'surplus'
-                WHEN i.current_stock <= COALESCE(i.min_stock, COALESCE(i.capacity, 0) * 0.2)
-                    THEN 'shortage'
-                ELSE 'balanced'
-            END AS status
+            i.current_stock,
+            i.capacity,
+            i.min_stock,
+            i.surplus_threshold,
+            i.unit_price
         FROM inventory i
-        JOIN villages v ON i.village_id = v.id
-        JOIN commodities c ON i.commodity_id = c.id
-        WHERE v.status = 'active'
-          AND COALESCE(i.capacity, 0) > 0
+        JOIN villages v ON v.id = i.village_id
+        JOIN commodities c ON c.id = i.commodity_id
+        WHERE (:village_id IS NULL OR i.village_id = :village_id)
     """)
 
-    result = await db.execute(query)
+    result = await db.execute(query, {"village_id": village_id})
     rows = result.fetchall()
-    logger.info(f"Fetched {len(rows)} inventory records for matching")
 
-    items = []
+    inventory_list = []
     for row in rows:
-        mapping = dict(row._mapping)
-        items.append(VillageInventory(**mapping))
-    return items
+        inventory_list.append({
+            "inventory_id": str(row.inventory_id),
+            "village_id": str(row.village_id),
+            "village_name": row.village_name,
+            "subdistrict": row.subdistrict,
+            "district": row.district,
+            "latitude": float(row.latitude) if row.latitude else 0.0,
+            "longitude": float(row.longitude) if row.longitude else 0.0,
+            "commodity_id": str(row.commodity_id),
+            "commodity_name": row.commodity_name,
+            "perishability": row.perishability,
+            "current_stock": Decimal(str(row.current_stock)),
+            "capacity": Decimal(str(row.capacity)),
+            "min_stock": Decimal(str(row.min_stock)),
+            "surplus_threshold": Decimal(str(row.surplus_threshold)),
+            "unit_price": Decimal(str(row.unit_price)),
+        })
+
+    return inventory_list
+
+
+async def find_nearby_villages(
+    db: AsyncSession,
+    latitude: float,
+    longitude: float,
+    radius_km: float = 50.0,
+) -> list[dict[str, Any]]:
+    """Find villages within radius using PostGIS ST_DWithin.
+
+    Assumes geography column (geometry(Point, 4326)).
+    """
+    query = text("""
+        SELECT
+            id,
+            name,
+            subdistrict,
+            district,
+            latitude,
+            longitude,
+            ST_Distance(
+                geography(ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)),
+                geography(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326))
+            ) / 1000.0 AS distance_km
+        FROM villages
+        WHERE ST_DWithin(
+            geography(ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)),
+            geography(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)),
+            :radius_meters
+        )
+        AND id != :exclude_village_id
+        ORDER BY distance_km ASC
+    """)
+
+    radius_meters = radius_km * 1000.0
+    result = await db.execute(query, {
+        "latitude": latitude,
+        "longitude": longitude,
+        "radius_meters": radius_meters,
+        "exclude_village_id": "",
+    })
+    rows = result.fetchall()
+
+    villages = []
+    for row in rows:
+        villages.append({
+            "id": str(row.id),
+            "name": row.name,
+            "subdistrict": row.subdistrict,
+            "district": row.district,
+            "latitude": float(row.latitude) if row.latitude else 0.0,
+            "longitude": float(row.longitude) if row.longitude else 0.0,
+            "distance_km": float(row.distance_km),
+        })
+
+    return villages
 
 
 async def generate_recommendations(
     db: AsyncSession,
-    max_recommendations: int = None,
-    radius_km: float = None,
-) -> List[MatchResult]:
+    village_id: Optional[str] = None,
+    radius_km: float = 50.0,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Main orchestration: find surplus villages and match with nearby shortage villages.
+
+    1. Fetch all inventory data
+    2. Classify surplus and shortage villages
+    3. For each surplus village, find nearby shortage villages
+    4. Score and rank recommendations
     """
-    Main recommendation generator.
+    inventory_list = await fetch_inventory_data(db, village_id)
 
-    Algorithm:
-    1. Fetch all active inventory records with status classification.
-    2. Separate into surplus_items and shortage_items.
-    3. For each surplus × shortage pair with same commodity:
-       a. Check distance ≤ radius_km (haversine).
-       b. Calculate transferable quantity.
-       c. Estimate profit and shipping cost.
-       d. Build MatchResult.
-    4. Rank by priority score (exponential decay + perishability + efficiency + profit).
-    5. Return top N.
-    """
-    max_reco = max_recommendations or settings.max_recommendations
-    radius = radius_km or settings.match_radius_km
+    # Classify
+    surplus_inventories = []
+    shortage_inventories = []
+    for inv in inventory_list:
+        status = classify_inventory(VillageInventory(**inv))
+        if status == "surplus":
+            surplus_inventories.append(inv)
+        elif status == "shortage":
+            shortage_inventories.append(inv)
 
-    inventory = await fetch_inventory_data(db)
-    surplus_items = [i for i in inventory if i.status == "surplus"]
-    shortage_items = [i for i in inventory if i.status == "shortage"]
+    # Build shortage lookup by commodity_id
+    shortage_by_commodity: dict[str, list[dict]] = {}
+    for si in shortage_inventories:
+        cid = si["commodity_id"]
+        if cid not in shortage_by_commodity:
+            shortage_by_commodity[cid] = []
+        shortage_by_commodity[cid].append(si)
 
-    if not surplus_items:
-        logger.info("No surplus villages detected — no recommendations generated")
-        return []
-    if not shortage_items:
-        logger.info("No shortage villages detected — no recommendations generated")
-        return []
+    # Find matches
+    recommendations = []
+    for surplus in surplus_inventories:
+        cid = surplus["commodity_id"]
+        shortages = shortage_by_commodity.get(cid, [])
 
-    logger.info(f"Matching: {len(surplus_items)} surplus × {len(shortage_items)} shortage records")
+        if not shortages:
+            continue
 
-    matches: List[MatchResult] = []
-    seen_pairs = set()  # deduplicate same village pair + commodity
+        # Find nearby shortage villages
+        nearby_villages = await find_nearby_villages(
+            db, surplus["latitude"], surplus["longitude"], radius_km
+        )
+        nearby_ids = {nv["id"] for nv in nearby_villages}
+        nearby_shortages = [
+            s for s in shortages if s["village_id"] in nearby_ids
+        ]
 
-    # Group by commodity for much faster matching
-    surplus_by_commodity = {}
-    for s in surplus_items:
-        surplus_by_commodity.setdefault(s.commodity_id, []).append(s)
+        if not nearby_shortages:
+            continue
 
-    shortage_by_commodity = {}
-    for s in shortage_items:
-        shortage_by_commodity.setdefault(s.commodity_id, []).append(s)
+        # Build distance map
+        distance_map: dict[str, float] = {
+            nv["id"]: nv["distance_km"] for nv in nearby_villages
+        }
 
-    for commodity_id, surpluses in surplus_by_commodity.items():
-        shortages = shortage_by_commodity.get(commodity_id, [])
-        for surplus in surpluses:
-            for shortage in shortages:
-                # Can't send to yourself
-                if surplus.village_id == shortage.village_id:
-                    continue
+        # Calculate available surplus
+        sur_inv = VillageInventory(**surplus)
+        available_surplus = sur_inv.current_stock - sur_inv.surplus_threshold
+        remaining = available_surplus
 
-                # Deduplication key
-                pair_key = (surplus.village_id, shortage.village_id, surplus.commodity_id)
-                if pair_key in seen_pairs:
-                    continue
+        for shortage in nearby_shortages:
+            if remaining <= 0:
+                break
 
-                # Distance filter
-                distance_km = haversine_distance(
-                    surplus.latitude, surplus.longitude,
-                    shortage.latitude, shortage.longitude,
-                )
-                if distance_km > radius:
-                    continue
+            short_inv = VillageInventory(**shortage)
+            needed = short_inv.min_stock - short_inv.current_stock
+            matched_qty = min(remaining, needed)
 
-                # Calculate quantities
-                available = calculate_available_surplus(surplus)
-                needed = calculate_shortage_amount(shortage)
-                match_qty = min(available, needed)
+            distance_km = distance_map.get(shortage["village_id"], 0.0)
 
-                if match_qty <= 0:
-                    continue
-
-                # Profit estimation
-                profit, shipping = estimate_profit_and_shipping(
-                    surplus.unit_price, match_qty, distance_km
-                )
-
-                seen_pairs.add(pair_key)
-                matches.append(MatchResult(
-                    from_village_id=surplus.village_id,
-                    from_village_name=surplus.village_name,
-                    to_village_id=shortage.village_id,
-                    to_village_name=shortage.village_name,
-                    commodity_id=surplus.commodity_id,
-                    commodity_name=surplus.commodity_name,
-                available_qty=available,
-                requested_qty=needed,
-                match_qty=match_qty,
+            # Build match result
+            match = MatchResult(
+                source_village_id=surplus["village_id"],
+                source_village_name=surplus["village_name"],
+                target_village_id=shortage["village_id"],
+                target_village_name=shortage["village_name"],
+                commodity_id=surplus["commodity_id"],
+                commodity_name=surplus["commodity_name"],
+                surplus_amount=available_surplus,
+                shortage_amount=needed,
+                matched_quantity=matched_qty,
                 distance_km=distance_km,
-                unit_price=surplus.unit_price,
-                estimated_profit=profit,
-                estimated_shipping_cost=shipping,
-                priority_score=0.0,  # set by ranker
-                perishability=surplus.perishability,
-            ))
+            )
 
-    ranked = rank_recommendations(matches, top_n=max_reco, max_km=radius)
-    logger.info(f"Generated {len(ranked)} recommendations from {len(matches)} candidate matches")
-    return ranked
+            # Estimate profit
+            profit_est = estimate_profit(
+                quantity_kg=matched_qty,
+                unit_price=surplus["unit_price"],
+                distance_km=distance_km,
+            )
+
+            # Calculate score
+            priority_score = apply_perishability_score(
+                match,
+                surplus["perishability"],
+                profit_est.estimated_profit,
+            )
+
+            recommendations.append({
+                "source_village_id": match.source_village_id,
+                "source_village_name": match.source_village_name,
+                "target_village_id": match.target_village_id,
+                "target_village_name": match.target_village_name,
+                "commodity_id": match.commodity_id,
+                "commodity_name": match.commodity_name,
+                "matched_quantity": float(match.matched_quantity),
+                "distance_km": match.distance_km,
+                "estimated_profit": float(profit_est.estimated_profit),
+                "estimated_revenue": float(profit_est.estimated_revenue),
+                "estimated_shipping_cost": float(profit_est.estimated_shipping_cost),
+                "priority_score": priority_score,
+            })
+
+            remaining -= matched_qty
+
+    # Rank by priority score
+    recommendations = rank_recommendations(recommendations)
+
+    return recommendations[:limit]

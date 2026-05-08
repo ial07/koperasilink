@@ -1,48 +1,48 @@
-"""
-Profit estimation for supply-demand matches.
-"""
-import math
-from app.core.config import settings
+from decimal import Decimal
+from dataclasses import dataclass
 
 
-def estimate_profit_and_shipping(
-    unit_price: float,
-    match_qty: float,
+@dataclass
+class ProfitEstimate:
+    estimated_profit: Decimal
+    estimated_revenue: Decimal
+    estimated_shipping_cost: Decimal
+    margin_rate: Decimal
+    shipping_km: float
+    shipping_kg: Decimal
+
+
+def estimate_profit(
+    quantity_kg: Decimal,
+    unit_price: Decimal,
     distance_km: float,
-) -> tuple[float, float]:
+    margin_rate: float = 0.20,
+    shipping_cost_per_km_kg: float = 500.0,
+) -> ProfitEstimate:
+    """Estimate profit for a redistribution recommendation.
+
+    Formula:
+        revenue = quantity_kg * unit_price
+        shipping_cost = shipping_cost_per_km_kg * distance_km * quantity_kg
+        estimated_profit = (revenue * margin_rate) - shipping_cost
+
+    Returns ProfitEstimate dataclass with breakdown.
     """
-    Estimate profit and shipping cost for a match.
+    qty = Decimal(str(quantity_kg))
+    price = Decimal(str(unit_price))
+    margin = Decimal(str(margin_rate))
+    shipping_rate = Decimal(str(shipping_cost_per_km_kg))
+    dist = Decimal(str(distance_km))
 
-    Returns:
-        (profit, shipping_cost) both in IDR
+    revenue = qty * price
+    shipping_cost = shipping_rate * dist * qty
+    estimated_profit = (revenue * margin) - shipping_cost
 
-    Model:
-        buy_price  = unit_price * match_qty
-        sell_price = unit_price * (1 + margin) * match_qty
-        shipping   = distance_km * match_qty * cost_per_km_per_kg
-        profit     = sell_price - buy_price - shipping
-    """
-    if match_qty <= 0 or unit_price <= 0:
-        return 0.0, 0.0
-
-    buy_price = unit_price * match_qty
-    sell_price = unit_price * (1 + settings.profit_margin_pct) * match_qty
-    shipping_cost = distance_km * match_qty * settings.shipping_cost_per_km_per_kg
-
-    profit = sell_price - buy_price - shipping_cost
-    return round(max(profit, 0.0), 2), round(shipping_cost, 2)
-
-
-def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Calculate the great-circle distance between two points on Earth (in km).
-    Used as fallback when PostGIS is not available.
-    """
-    R = 6371.0  # Earth's radius in km
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return round(R * c, 2)
+    return ProfitEstimate(
+        estimated_profit=estimated_profit,
+        estimated_revenue=revenue,
+        estimated_shipping_cost=shipping_cost,
+        margin_rate=margin,
+        shipping_km=distance_km,
+        shipping_kg=quantity_kg,
+    )

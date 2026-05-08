@@ -1,78 +1,75 @@
-"""
-Surplus-shortage classification and quantity calculation logic.
-"""
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Optional
-from app.core.config import settings
 
 
 @dataclass
 class VillageInventory:
     village_id: str
     village_name: str
-    commodity_id: str
-    commodity_name: str
-    current_stock: float
-    capacity: float
-    min_stock: float
-    surplus_threshold: float
-    unit_price: float
+    subdistrict: str
+    district: str
     latitude: float
     longitude: float
-    perishability: str
-    status: str  # surplus / shortage / balanced
+    commodity_id: str
+    commodity_name: str
+    perishability: str  # "high", "medium", "low"
+    current_stock: Decimal
+    capacity: Decimal
+    min_stock: Decimal
+    surplus_threshold: Decimal
+    unit_price: Decimal
 
 
 @dataclass
 class MatchResult:
-    from_village_id: str
-    from_village_name: str
-    to_village_id: str
-    to_village_name: str
+    source_village_id: str
+    source_village_name: str
+    target_village_id: str
+    target_village_name: str
     commodity_id: str
     commodity_name: str
-    available_qty: float
-    requested_qty: float
-    match_qty: float
+    surplus_amount: Decimal
+    shortage_amount: Decimal
+    matched_quantity: Decimal
     distance_km: float
-    unit_price: float
-    estimated_profit: float
-    estimated_shipping_cost: float
-    priority_score: float
-    perishability: str
-    explanation: dict = field(default_factory=dict)
 
 
-def classify_inventory(
-    current_stock: float,
-    capacity: float,
-    min_stock: Optional[float] = None,
-    surplus_threshold: Optional[float] = None,
-) -> str:
-    """Classify inventory status based on stock levels vs capacity."""
-    effective_min = min_stock if min_stock is not None else capacity * settings.shortage_threshold_pct
-    effective_surplus = surplus_threshold if surplus_threshold is not None else capacity * settings.surplus_threshold_pct
+def classify_inventory(inv: VillageInventory) -> str:
+    """Classify inventory status based on stock levels.
 
-    if current_stock >= effective_surplus:
+    Returns:
+        - "surplus": current_stock > surplus_threshold
+        - "normal": min_stock <= current_stock <= surplus_threshold
+        - "shortage": current_stock < min_stock
+    """
+    if inv.current_stock > inv.surplus_threshold:
         return "surplus"
-    if current_stock <= effective_min:
+    elif inv.current_stock >= inv.min_stock:
+        return "normal"
+    else:
         return "shortage"
-    return "balanced"
 
 
-def calculate_available_surplus(item: VillageInventory) -> float:
+def calculate_available_surplus(inv: VillageInventory) -> Decimal:
+    """Calculate how much surplus stock is available for redistribution.
+
+    Surplus = current_stock - surplus_threshold (only if surplus).
+    Returns 0 if not in surplus state.
     """
-    How much can be sent while keeping a safety reserve.
-    Safety reserve = 15% of capacity to ensure local stability.
-    """
-    safe_reserve = item.capacity * settings.safe_reserve_pct
-    return max(0.0, item.current_stock - safe_reserve)
+    if classify_inventory(inv) == "surplus":
+        available = inv.current_stock - inv.surplus_threshold
+        return max(available, Decimal("0"))
+    return Decimal("0")
 
 
-def calculate_shortage_amount(item: VillageInventory) -> float:
+def calculate_shortage_amount(inv: VillageInventory) -> Decimal:
+    """Calculate how much stock is needed to cover the shortage.
+
+    Shortage = min_stock - current_stock (only if shortage).
+    Returns 0 if not in shortage state.
     """
-    How much is needed to restore the village to a healthy minimum level.
-    Target = min_stock or 30% of capacity (slightly above shortage threshold).
-    """
-    target = item.min_stock if item.min_stock > 0 else item.capacity * 0.30
-    return max(0.0, target - item.current_stock)
+    if classify_inventory(inv) == "shortage":
+        needed = inv.min_stock - inv.current_stock
+        return max(needed, Decimal("0"))
+    return Decimal("0")
