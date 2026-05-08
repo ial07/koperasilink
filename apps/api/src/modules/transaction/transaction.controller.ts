@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Req } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { TransactionService } from "./transaction.service";
 
@@ -17,5 +17,15 @@ export class TransactionController {
       limit: limit ? parseInt(limit) : undefined,
       page: page ? parseInt(page) : undefined,
     });
+  }
+
+  @Post("from-recommendation/:recommendationId")
+  createFromRecommendation(@Param("recommendationId") id: string, @Req() req: any) {
+    return this.transactionService.createFromRecommendation(id, req.user.id);
+  }
+
+  @Patch(":id/status")
+  updateStatus(@Param("id") id: string, @Query("status") status: string) {
+    return this.transactionService.updateStatus(id, status);
   }
 }
