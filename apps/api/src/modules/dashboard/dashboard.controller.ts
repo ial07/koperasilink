@@ -10,6 +10,16 @@ export class DashboardController {
     return this.dashboardService.getKpi();
   }
 
+  @Get("village-conditions")
+  async getVillageConditions() {
+    return this.dashboardService.getVillageConditions();
+  }
+
+  @Get("recent-activity")
+  async getRecentActivity() {
+    return this.dashboardService.getRecentActivity();
+  }
+
   @Get("trends/prices")
   async getPriceTrends(
     @Query("commodityId") commodityId?: string,
