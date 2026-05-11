@@ -55,7 +55,7 @@ export class RecommendationService {
         include: {
           sourceVillage: { select: { id: true, name: true } },
           targetVillage: { select: { id: true, name: true } },
-          commodity: { select: { id: true, name: true, unit: true } },
+          commodity: { select: { id: true, name: true, unitRelation: true } },
         },
         orderBy: { priorityScore: "desc" },
         skip: ((filters.page || 1) - 1) * (filters.limit || 20),

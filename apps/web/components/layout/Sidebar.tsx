@@ -24,6 +24,7 @@ const navItems = [
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/villages", label: "Villages", icon: Users },
   { href: "/dashboard/trend", label: "Trend Analysis", icon: BarChart3 },
+  { href: "/dashboard/master-data/commodity", label: "Master Data", icon: Package },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

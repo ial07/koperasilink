@@ -52,7 +52,7 @@ export class VillageService {
   async findOne(id: string) {
     const village = await this.prisma.village.findUnique({
       where: { id },
-      include: { inventory: { include: { commodity: true } } },
+      include: { inventory: { include: { commodity: { include: { unitRelation: true } } } } },
     });
     if (!village) throw new NotFoundException(`Village ${id} not found`);
     return village;

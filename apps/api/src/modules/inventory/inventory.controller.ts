@@ -12,15 +12,20 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InventoryService } from './inventory.service';
+import { InventoryMovementService } from './inventory-movement.service';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { QueryInventoryDto } from './dto/query-inventory.dto';
 import { RolesGuard, Roles } from '../strategies/roles.guard';
+import { MovementType, SourceType } from '@prisma/client';
 
 @Controller('inventory')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly movementService: InventoryMovementService
+  ) {}
 
   @Get()
   findAll(@Req() req: any, @Query() query: QueryInventoryDto) {
@@ -41,6 +46,28 @@ export class InventoryController {
   @Get('village/:villageId')
   findByVillage(@Param('villageId') villageId: string) {
     return this.inventoryService.findByVillage(villageId);
+  }
+
+  @Get(':id/movements')
+  getMovements(@Param('id') id: string, @Query() query: any) {
+    return this.movementService.getMovements(id, query);
+  }
+
+  @Post(':id/movements')
+  @Roles('system_admin', 'koperasi_admin', 'bumdes_operator')
+  async createMovement(
+    @Param('id') id: string,
+    @Body() body: { type: MovementType; quantity: number; notes?: string },
+    @Req() req: any
+  ) {
+    return this.movementService.createMovement({
+      inventoryId: id,
+      type: body.type,
+      quantity: Number(body.quantity),
+      sourceType: SourceType.MANUAL,
+      notes: body.notes,
+      createdBy: req.user?.id,
+    });
   }
 
   @Post()

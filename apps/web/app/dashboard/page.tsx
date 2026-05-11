@@ -394,7 +394,7 @@ export default function DashboardPage() {
                     <TableCell className="text-right font-mono">
                       {p.unitPrice ? Number(p.unitPrice).toLocaleString() : "—"}
                     </TableCell>
-                    <TableCell>{p.commodity?.unit ?? "—"}</TableCell>
+                    <TableCell>{p.commodity?.unitRelation?.symbol ?? "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -3,12 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { QueryInventoryDto } from './dto/query-inventory.dto';
+import { InventoryMovementService } from './inventory-movement.service';
 
 type InventoryStatus = 'surplus' | 'shortage' | 'balanced';
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private movementService: InventoryMovementService
+  ) {}
 
   /**
    * Compute inventory status based on stock vs monthly demand.
@@ -64,7 +68,7 @@ export class InventoryService {
 
     let raw = await this.prisma.inventory.findMany({
       where,
-      include: { village: true, commodity: true },
+      include: { village: true, commodity: { include: { unitRelation: true } } },
       orderBy: { lastUpdated: 'desc' },
       skip,
       take: limitNum,
@@ -112,7 +116,7 @@ export class InventoryService {
   async findByVillage(villageId: string) {
     const items = await this.prisma.inventory.findMany({
       where: { villageId },
-      include: { commodity: true, village: true },
+      include: { commodity: { include: { unitRelation: true } }, village: true },
       orderBy: { lastUpdated: 'desc' },
     });
 
@@ -141,7 +145,7 @@ export class InventoryService {
 
   async getSummaryByVillage() {
     const items = await this.prisma.inventory.findMany({
-      include: { commodity: true, village: true },
+      include: { commodity: { include: { unitRelation: true } }, village: true },
     });
 
     const grouped: Record<
@@ -195,7 +199,7 @@ export class InventoryService {
       grouped[villageId].commodities.push({
         id: item.commodity.id,
         name: item.commodity.name,
-        unit: item.commodity.unit,
+        unit: item.commodity.unitRelation?.symbol || '-',
         currentStock: currentNum,
         capacity: item.capacity ? Number(item.capacity) : null,
         status: computedStatus,
@@ -251,31 +255,48 @@ export class InventoryService {
       throw new BadRequestException('Stock cannot exceed capacity');
     }
 
-    return this.prisma.inventory.upsert({
-      where: {
-        villageId_commodityId: {
-          villageId: dto.villageId,
-          commodityId: dto.commodityId,
+    return this.prisma.$transaction(async (tx) => {
+      let inv = await tx.inventory.findUnique({
+        where: {
+          villageId_commodityId: {
+            villageId: dto.villageId,
+            commodityId: dto.commodityId,
+          },
         },
-      },
-      update: {
-        currentStock: dto.currentStock,
-        capacity: dto.capacity,
-        monthlyDemand: dto.monthlyDemand,
-        unitPrice: dto.unitPrice,
-        lastUpdated: new Date(),
-      },
-      create: {
-        villageId: dto.villageId,
-        commodityId: dto.commodityId,
-        currentStock: dto.currentStock,
-        capacity: dto.capacity,
-        monthlyDemand: dto.monthlyDemand,
-        unitPrice: dto.unitPrice,
-        minStock: dto.capacity ? Math.floor(dto.capacity * 0.2) : undefined,
-        surplusThreshold: dto.capacity ? Math.floor(dto.capacity * 0.7) : undefined,
-      },
-      include: { village: true, commodity: true },
+      });
+
+      if (!inv) {
+        inv = await tx.inventory.create({
+          data: {
+            villageId: dto.villageId,
+            commodityId: dto.commodityId,
+            currentStock: 0, // We will set this via adjustStock
+            capacity: dto.capacity,
+            monthlyDemand: dto.monthlyDemand,
+            unitPrice: dto.unitPrice,
+            minStock: dto.capacity ? Math.floor(dto.capacity * 0.2) : undefined,
+            surplusThreshold: dto.capacity ? Math.floor(dto.capacity * 0.7) : undefined,
+          },
+        });
+      } else {
+        inv = await tx.inventory.update({
+          where: { id: inv.id },
+          data: {
+            capacity: dto.capacity,
+            monthlyDemand: dto.monthlyDemand,
+            unitPrice: dto.unitPrice,
+            lastUpdated: new Date(),
+          },
+        });
+      }
+
+      // Use movement service to adjust stock and record the log
+      await this.movementService.adjustStock(inv.id, dto.currentStock, 'Initial/Update via Form');
+
+      return tx.inventory.findUnique({
+        where: { id: inv.id },
+        include: { village: true, commodity: { include: { unitRelation: true } } },
+      });
     });
   }
 
@@ -289,13 +310,26 @@ export class InventoryService {
       throw new BadRequestException('Stock cannot exceed capacity');
     }
 
-    return this.prisma.inventory.update({
-      where: { id },
-      data: {
-        ...dto,
-        lastUpdated: new Date(),
-      },
-      include: { village: true, commodity: true },
+    return this.prisma.$transaction(async (tx) => {
+      // Extract properties, removing currentStock from direct DB update
+      const { currentStock, ...updateData } = dto;
+
+      const inv = await tx.inventory.update({
+        where: { id },
+        data: {
+          ...updateData,
+          lastUpdated: new Date(),
+        },
+      });
+
+      if (currentStock !== undefined) {
+        await this.movementService.adjustStock(id, currentStock, 'Update via Form');
+      }
+
+      return tx.inventory.findUnique({
+        where: { id },
+        include: { village: true, commodity: { include: { unitRelation: true } } },
+      });
     });
   }
 
@@ -312,7 +346,7 @@ export class InventoryService {
   async recordMonthlySnapshot(id: string) {
     const inv = await this.prisma.inventory.findUnique({
       where: { id },
-      include: { village: true, commodity: true },
+      include: { village: true, commodity: { include: { unitRelation: true } } },
     });
     if (!inv) throw new NotFoundException('Inventory not found');
 
@@ -363,7 +397,7 @@ export class InventoryService {
 
     const inventories = await this.prisma.inventory.findMany({
       where,
-      include: { village: true, commodity: true },
+      include: { village: true, commodity: { include: { unitRelation: true } } },
     });
 
     const now = new Date();

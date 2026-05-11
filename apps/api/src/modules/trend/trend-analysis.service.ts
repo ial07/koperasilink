@@ -45,14 +45,14 @@ export class TrendAnalysisService {
     // Ambil current inventory
     const inventory = await this.prisma.inventory.findUnique({
       where: { villageId_commodityId: { villageId, commodityId } },
-      include: { commodity: true, village: true },
+      include: { commodity: { include: { unitRelation: true } }, village: true },
     });
 
     if (!inventory || !inventory.commodity) return null;
 
     const currentStock = Number(inventory.currentStock);
     const capacity = inventory.capacity ? Number(inventory.capacity) : null;
-    const unit = inventory.commodity.unit;
+    const unit = inventory.commodity.unitRelation?.symbol || '-';
     const commodityName = inventory.commodity.name;
     const villageName = inventory.village?.name ?? "Unknown";
 
@@ -101,7 +101,7 @@ export class TrendAnalysisService {
    */
   async predictAll(): Promise<TrendPrediction[]> {
     const inventories = await this.prisma.inventory.findMany({
-      include: { commodity: true, village: true },
+      include: { commodity: { include: { unitRelation: true } }, village: true },
     });
 
     const results: TrendPrediction[] = [];

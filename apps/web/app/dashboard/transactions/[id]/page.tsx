@@ -195,7 +195,7 @@ export default function TransactionDetailPage() {
             <div className="text-2xl font-bold">
               {Number(txn.quantity).toLocaleString()}
               <span className="text-sm font-normal text-muted-foreground ml-1">
-                {txn.commodity?.unit || "kg"}
+                {txn.commodity?.unitRelation?.symbol || 'kg'}
               </span>
             </div>
           </CardContent>

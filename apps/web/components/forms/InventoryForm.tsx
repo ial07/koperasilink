@@ -29,7 +29,7 @@ type InventoryFormData = z.infer<typeof inventorySchema>;
 
 interface InventoryFormProps {
   villages: Array<{ id: string; name: string }>;
-  commodities: Array<{ id: string; name: string; unit: string }>;
+  commodities: Array<{ id: string; name: string; unitRelation?: { symbol: string } | null }>;
   onSuccess?: () => void;
   initialData?: Partial<InventoryFormData & { unitPrice?: number }>;
   editMode?: boolean;
@@ -141,7 +141,7 @@ export function InventoryForm({
               <SelectContent>
                 {commodities.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.unit})
+                    {c.name} ({c.unitRelation?.symbol ?? ''})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -158,7 +158,7 @@ export function InventoryForm({
         <Label htmlFor="currentStock">
           Stok Saat Ini
           {selectedCommodity && commodities.length > 0 &&
-            ` (${commodities.find((c) => c.id === selectedCommodity)?.unit ?? ''})`}
+            ` (${commodities.find((c) => c.id === selectedCommodity)?.unitRelation?.symbol ?? ''})`}
         </Label>
         <Input
           id="currentStock"
@@ -200,7 +200,7 @@ export function InventoryForm({
         <Label htmlFor="monthlyDemand">
           Kebutuhan Bulanan
           {selectedCommodity && commodities.length > 0 &&
-            ` (${commodities.find((c) => c.id === selectedCommodity)?.unit ?? ''}/bulan)`}
+            ` (${commodities.find((c) => c.id === selectedCommodity)?.unitRelation?.symbol ?? ''}/bulan)`}
         </Label>
         <Input
           id="monthlyDemand"

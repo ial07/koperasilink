@@ -1,10 +1,15 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { isValidTransition, getNextStatus } from "./utils/status-machine";
+import { InventoryMovementService } from "../inventory/inventory-movement.service";
+import { MovementType, SourceType } from "@prisma/client";
 
 @Injectable()
 export class TransactionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private movementService: InventoryMovementService
+  ) {}
 
   // ── Existing ──
 
@@ -26,7 +31,7 @@ export class TransactionService {
         include: {
           fromVillage: true,
           toVillage: true,
-          commodity: true,
+          commodity: { include: { unitRelation: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -96,7 +101,7 @@ export class TransactionService {
           break;
         case "completed":
           updateData.completedAt = new Date();
-          await this.adjustInventory(tx, existing);
+          await this.adjustInventory(tx as any, existing);
           break;
         case "cancelled":
           updateData.cancelledAt = new Date();
@@ -110,39 +115,59 @@ export class TransactionService {
   // ── Phase 9: Stock adjustment on completion ──
 
   private async adjustInventory(tx: any, t: any) {
-    // Deduct from source
-    await this.prisma.inventory.update({
-      where: {
-        villageId_commodityId: {
-          villageId: t.fromVillageId,
-          commodityId: t.commodityId,
-        },
-      },
-      data: {
-        currentStock: { decrement: t.quantity },
-        lastUpdated: new Date(),
-      },
-    });
-
-    // Add to target (upsert)
-    await this.prisma.inventory.upsert({
+    // Determine target inventory
+    let targetInventory = await tx.inventory.findUnique({
       where: {
         villageId_commodityId: {
           villageId: t.toVillageId,
           commodityId: t.commodityId,
         },
       },
-      update: {
-        currentStock: { increment: t.quantity },
-        lastUpdated: new Date(),
-      },
-      create: {
-        villageId: t.toVillageId,
-        commodityId: t.commodityId,
-        currentStock: t.quantity,
-        capacity: t.quantity * 2,
-        lastUpdated: new Date(),
+    });
+
+    if (!targetInventory) {
+      targetInventory = await tx.inventory.create({
+        data: {
+          villageId: t.toVillageId,
+          commodityId: t.commodityId,
+          currentStock: 0,
+          capacity: Number(t.quantity) * 2, // Default capacity logic
+          lastUpdated: new Date(),
+        },
+      });
+    }
+
+    const sourceInventory = await tx.inventory.findUnique({
+      where: {
+        villageId_commodityId: {
+          villageId: t.fromVillageId,
+          commodityId: t.commodityId,
+        },
       },
     });
+
+    if (!sourceInventory) {
+      throw new BadRequestException("Source inventory not found");
+    }
+
+    // Emit OUT movement for sender
+    await this.movementService.createMovement({
+      inventoryId: sourceInventory.id,
+      type: MovementType.OUT,
+      quantity: Number(t.quantity),
+      sourceType: SourceType.TRANSACTION,
+      referenceId: `${t.id}_OUT`,
+      notes: `Transfer OUT to Village ${t.toVillageId}`,
+    }, tx);
+
+    // Emit IN movement for receiver
+    await this.movementService.createMovement({
+      inventoryId: targetInventory.id,
+      type: MovementType.IN,
+      quantity: Number(t.quantity),
+      sourceType: SourceType.TRANSACTION,
+      referenceId: `${t.id}_IN`,
+      notes: `Transfer IN from Village ${t.fromVillageId}`,
+    }, tx);
   }
 }

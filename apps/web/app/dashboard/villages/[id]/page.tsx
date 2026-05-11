@@ -62,7 +62,7 @@ export default function VillageDetailPage() {
   // Fetch commodities for form
   const { data: commoditiesData } = useQuery({
     queryKey: ['commodities-list'],
-    queryFn: () => apiClient.get('/commodity').then((r) => r.data),
+    queryFn: () => apiClient.get('/commodities').then((r) => r.data),
   });
 
   // Fetch nearby villages (50km radius)
@@ -83,7 +83,7 @@ export default function VillageDetailPage() {
 
   const inventory = Array.isArray(inventoryData) ? inventoryData : [];
   const villages = village ? [village] : [];
-  const commodities = commoditiesData?.data ?? [];
+  const commodities = Array.isArray(commoditiesData) ? commoditiesData : (commoditiesData?.data ?? []);
   const nearby = Array.isArray(nearbyData) ? nearbyData : [];
 
   const statusVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -319,7 +319,7 @@ export default function VillageDetailPage() {
                     <TableCell className="font-medium">
                       {item.commodity?.name ?? '—'}
                       <span className="text-muted-foreground ml-1 text-xs">
-                        ({item.commodity?.unit ?? ''})
+                        ({item.commodity?.unitRelation?.symbol ?? ''})
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">

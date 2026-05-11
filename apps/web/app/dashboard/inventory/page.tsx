@@ -33,11 +33,16 @@ import { InventoryForm } from '@/components/forms/InventoryForm';
 import { Package, TrendingUp, TrendingDown, Search, Plus, ClipboardCheck } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
+import { InventoryMovementForm } from '@/components/forms/InventoryMovementForm';
+
 export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [villageFilter, setVillageFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [movementDialogOpen, setMovementDialogOpen] = useState(false);
+  const [selectedInventory, setSelectedInventory] = useState<any>(null);
+
   const onStatusChange = useCallback((value: string | null) => {
     setStatusFilter(value ?? 'all');
   }, []);
@@ -68,7 +73,7 @@ export default function InventoryPage() {
   });
 
   const villages = villagesData?.data ?? [];
-  const commodities = commoditiesData?.data ?? [];
+  const commodities = Array.isArray(commoditiesData) ? commoditiesData : (commoditiesData?.data ?? []);
   const allItems = data?.data ?? [];
 
   // Apply filters
@@ -100,16 +105,21 @@ export default function InventoryPage() {
     queryClient.invalidateQueries({ queryKey: ['inventory'] });
   };
 
+  const handleMovementSuccess = () => {
+    setMovementDialogOpen(false);
+    setSelectedInventory(null);
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
           <p className="text-muted-foreground mt-1">
-            Stok komoditas per desa. Klik <strong>Catat Stok Bulan Ini</strong> setiap awal bulan agar AI bisa memprediksi kebutuhan bulan depan.
+            Manajemen stok komoditas per desa. Catat setiap pergerakan barang (Masuk/Keluar) untuk akurasi AI.
           </p>
         </div>
-        {/* Catat Sekali Klik + Add Stock */}
         <div className="flex gap-2">
           <Button
             variant="default"
@@ -118,27 +128,27 @@ export default function InventoryPage() {
               try {
                 const res = await apiClient.post('/inventory/record-all-monthly');
                 const { toast } = await import('sonner');
-                toast.success(res?.data?.message || 'Semua stok berhasil dicatat!');
+                toast.success(res?.data?.message || 'Semua stok berhasil dicatat ke histori bulanan!');
                 queryClient.invalidateQueries({ queryKey: ['trend-predictions'] });
               } catch (e: any) {
                 const { toast } = await import('sonner');
-                toast.error(e?.response?.data?.message || 'Gagal mencatat stok');
+                toast.error(e?.response?.data?.message || 'Gagal mencatat stok bulanan');
               }
             }}
           >
             <ClipboardCheck className="mr-2 h-4 w-4" />
-            Catat Stok Bulan Ini
+            Snapshot Bulanan
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger>
               <Button variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Stock
+                Tambah Komoditas Baru
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Inventory Record</DialogTitle>
+                <DialogTitle>Tambah Komoditas Desa</DialogTitle>
               </DialogHeader>
               <InventoryForm
                 villages={villages}
@@ -218,6 +228,25 @@ export default function InventoryPage() {
         </Select>
       </div>
 
+      {/* Movement Dialog */}
+      <Dialog open={movementDialogOpen} onOpenChange={setMovementDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Catat Aktivitas Stok</DialogTitle>
+          </DialogHeader>
+          {selectedInventory && (
+            <InventoryMovementForm
+              inventoryId={selectedInventory.id}
+              villageName={selectedInventory.village?.name || '—'}
+              commodityName={selectedInventory.commodity?.name || '—'}
+              currentStock={Number(selectedInventory.currentStock)}
+              unit={selectedInventory.commodity?.unitRelation?.symbol || ''}
+              onSuccess={handleMovementSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -245,9 +274,8 @@ export default function InventoryPage() {
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Capacity</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Monthly Demand</TableHead>
                   <TableHead className="text-right">Last Updated</TableHead>
-                  <TableHead className="w-20">Action</TableHead>
+                  <TableHead className="w-32 text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,7 +289,7 @@ export default function InventoryPage() {
                       <TableCell>
                         {item.commodity?.name ?? '—'}{' '}
                         <span className="text-muted-foreground text-xs">
-                          ({item.commodity?.unit ?? ''})
+                          ({item.commodity?.unitRelation?.symbol ?? ''})
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-mono">
@@ -275,39 +303,22 @@ export default function InventoryPage() {
                           {status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {item.monthlyDemand
-                          ? `${Number(item.monthlyDemand).toLocaleString()}`
-                          : '—'}
-                        {item.monthlyDemand && item.commodity?.unit && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            /bln
-                          </span>
-                        )}
-                      </TableCell>
                       <TableCell className="text-right text-muted-foreground text-xs">
                         {item.lastUpdated
                           ? new Date(item.lastUpdated).toLocaleDateString()
                           : '—'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-8 text-xs"
-                          onClick={async () => {
-                            try {
-                              await apiClient.post(`/inventory/${item.id}/record-monthly`);
-                              const { toast } = await import('sonner');
-                              toast.success(`Stok tercatat: ${item.village?.name} → ${item.commodity?.name}`);
-                              queryClient.invalidateQueries({ queryKey: ['trend-predictions'] });
-                            } catch (e: any) {
-                              const { toast } = await import('sonner');
-                              toast.error(e?.response?.data?.message || 'Gagal mencatat stok');
-                            }
+                          onClick={() => {
+                            setSelectedInventory(item);
+                            setMovementDialogOpen(true);
                           }}
                         >
-                          📋 Catat
+                          🔄 Aktivitas
                         </Button>
                       </TableCell>
                     </TableRow>

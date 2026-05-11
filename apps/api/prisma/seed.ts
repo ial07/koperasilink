@@ -112,7 +112,17 @@ async function main() {
 
   const dbCommoditiesMap = new Map();
   for (const c of commodities) {
-    const created = await prisma.commodity.create({ data: c });
+    const uom = await prisma.unitOfMeasure.upsert({
+      where: { symbol: c.unit },
+      update: {},
+      create: { symbol: c.unit, description: `Satuan ${c.unit}` }
+    });
+
+    const { unit, ...commodityData } = c;
+
+    const created = await prisma.commodity.create({ 
+      data: { ...commodityData, unitId: uom.id } 
+    });
     dbCommoditiesMap.set(c.name, created);
     console.log(`  ✅ Commodity: ${c.name}`);
   }

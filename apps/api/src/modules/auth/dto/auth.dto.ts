@@ -1,4 +1,4 @@
-import { IsString, IsPhoneNumber, Length, IsOptional, IsEmail, IsEnum } from "class-validator";
+import { IsString, IsPhoneNumber, Length, IsOptional, IsEmail, IsEnum, IsNotEmpty, IsUUID } from "class-validator";
 
 export class RegisterDto {
   @IsString()
@@ -16,9 +16,10 @@ export class RegisterDto {
   @Length(6, 100)
   password: string;
 
-  @IsOptional()
   @IsString()
-  villageId?: string;
+  @IsNotEmpty()
+  @IsUUID()
+  villageId: string;
 }
 
 export class LoginDto {

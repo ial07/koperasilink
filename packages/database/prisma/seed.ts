@@ -5,6 +5,13 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding database with Rejang Lebong initial data...')
 
+  // Insert UoMs
+  const kg = await prisma.unitOfMeasure.upsert({
+    where: { symbol: 'kg' },
+    update: {},
+    create: { symbol: 'kg', description: 'Kilogram' }
+  })
+
   // Insert Commodities
   const chili = await prisma.commodity.upsert({
     where: { name: 'Cabai Merah' },
@@ -12,7 +19,7 @@ async function main() {
     create: {
       name: 'Cabai Merah',
       category: 'vegetables',
-      unit: 'kg',
+      unitId: kg.id,
       perishability: 'high',
       shelfLifeDays: 7
     }
@@ -24,7 +31,7 @@ async function main() {
     create: {
       name: 'Kopi Robusta',
       category: 'grains',
-      unit: 'kg',
+      unitId: kg.id,
       perishability: 'low',
       shelfLifeDays: 180
     }

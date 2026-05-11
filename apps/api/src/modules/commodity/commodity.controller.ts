@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Query } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { CommodityService } from "./commodity.service";
 import { RolesGuard, Roles } from "../strategies/roles.guard";
@@ -16,7 +16,7 @@ export class CommodityController {
       name: string;
       nameLocal?: string;
       category: string;
-      unit: string;
+      unitId: string;
       perishability: string;
       shelfLifeDays?: number;
     },
@@ -24,9 +24,15 @@ export class CommodityController {
     return this.commodityService.create(data);
   }
 
+  @Get("uoms")
+  getUoms() {
+    return this.commodityService.getUoms();
+  }
+
   @Get()
-  findAll() {
-    return this.commodityService.findAll();
+  findAll(@Query('all') all: string) {
+    const activeOnly = all !== 'true';
+    return this.commodityService.findAll(activeOnly);
   }
 
   @Get(":id")
@@ -43,6 +49,6 @@ export class CommodityController {
   @Delete(":id")
   @Roles("system_admin", "koperasi_admin")
   remove(@Param("id") id: string) {
-    return this.commodityService.remove(id);
+    return this.commodityService.deactivate(id);
   }
 }

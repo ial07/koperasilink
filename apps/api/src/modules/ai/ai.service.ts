@@ -75,7 +75,7 @@ export class AiService {
     return this.prisma.aiRecommendation.findMany({
       where: whereClause,
       include: {
-        commodity: true,
+        commodity: { include: { unitRelation: true } },
         sourceVillage: true,
         targetVillage: true,
       },

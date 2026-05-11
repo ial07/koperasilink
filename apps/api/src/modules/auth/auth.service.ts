@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  BadRequestException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -18,6 +19,17 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
     if (existing) throw new ConflictException("Phone already registered");
+
+    if (!dto.villageId) {
+      throw new BadRequestException("Village ID is required for registration");
+    }
+
+    const village = await this.prisma.village.findUnique({
+      where: { id: dto.villageId },
+    });
+    if (!village) {
+      throw new BadRequestException("Invalid village selected");
+    }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
@@ -40,6 +52,19 @@ export class AuthService {
     }
 
     return this.generateTokens(user.id, user.phone, user.role);
+  }
+
+  async getVillages() {
+    return this.prisma.village.findMany({
+      where: { status: "active" },
+      select: {
+        id: true,
+        name: true,
+        province: true,
+        district: true,
+      },
+      orderBy: { name: "asc" },
+    });
   }
 
   async login(dto: LoginDto) {

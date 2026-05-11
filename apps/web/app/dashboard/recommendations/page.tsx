@@ -114,7 +114,7 @@ export default function RecommendationsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {data?.data?.map((rec: any) => {
-                const unit = rec.commodity?.unit || "kg";
+                const unit = rec.commodity?.unitRelation?.symbol || 'kg';
                 return (
                   <Card
                     key={rec.id}

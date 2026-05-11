@@ -36,7 +36,7 @@ export class DashboardService {
     const [villages, inventoryRows, completedTxns, recomms] = await Promise.all([
       this.prisma.village.findMany(),
       this.prisma.inventory.findMany({
-        include: { village: true, commodity: true },
+        include: { village: true, commodity: { include: { unitRelation: true } } },
       }),
       this.prisma.transaction.count({ where: { status: "completed" } }),
       this.prisma.aiRecommendation.findMany(),
@@ -93,7 +93,7 @@ export class DashboardService {
         vc.commodities.push({
           id: inv.commodityId,
           name: inv.commodity.name,
-          unit: inv.commodity.unit,
+          unit: inv.commodity.unitRelation?.symbol || '-',
           currentStock: stock,
           capacity,
           status,
@@ -149,7 +149,7 @@ export class DashboardService {
   async getVillageConditions() {
     const villages = await this.prisma.village.findMany();
     const inventory = await this.prisma.inventory.findMany({
-      include: { commodity: true },
+      include: { commodity: { include: { unitRelation: true } } },
     });
 
     const map = new Map<string, VillageCondition>();
@@ -188,7 +188,7 @@ export class DashboardService {
         vc.commodities.push({
           id: inv.commodityId,
           name: inv.commodity.name,
-          unit: inv.commodity.unit,
+          unit: inv.commodity.unitRelation?.symbol || '-',
           currentStock: stock,
           capacity,
           status,
@@ -264,7 +264,7 @@ export class DashboardService {
         select: {
           unitPrice: true,
           village: { select: { id: true, name: true } },
-          commodity: { select: { id: true, name: true, unit: true } },
+          commodity: { select: { id: true, name: true, unitRelation: true } },
         },
         orderBy: { lastUpdated: "desc" },
         take: 50,

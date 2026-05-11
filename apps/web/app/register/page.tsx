@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,14 +15,24 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [villageId, setVillageId] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const { data: villages, isLoading: loadingVillages } = useQuery({
+    queryKey: ["auth-villages"],
+    queryFn: () => apiClient.get("/auth/villages").then((r) => r.data),
+  });
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!villageId) {
+      toast.error("Please select a village");
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await apiClient.post("/auth/register", { name, phone, password });
+      const { data } = await apiClient.post("/auth/register", { name, phone, password, villageId });
       toast.success("Account created!");
       
       localStorage.setItem("token", data.accessToken);
@@ -74,7 +85,27 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <div className="space-y-2">
+              <Label htmlFor="village">Village</Label>
+              <select
+                id="village"
+                required
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={villageId}
+                onChange={(e) => setVillageId(e.target.value)}
+                disabled={loadingVillages}
+              >
+                <option value="" disabled>
+                  {loadingVillages ? "Loading villages..." : "Select your village"}
+                </option>
+                {villages?.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.district}, {v.province})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading || !villageId}>
               {loading ? "Creating account..." : "Register"}
             </Button>
           </form>

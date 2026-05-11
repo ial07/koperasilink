@@ -17,34 +17,75 @@ async def fetch_inventory_data(
 
     Uses raw SQL query mapping to snake_case table names.
     """
-    query = text("""
-        SELECT
-            i.id AS inventory_id,
-            i.village_id,
-            v.name AS village_name,
-            v.subdistrict,
-            v.district,
-            v.latitude,
-            v.longitude,
-            i.commodity_id,
-            c.name AS commodity_name,
-            c.perishability,
-            i.current_stock,
-            i.capacity,
-            i.min_stock,
-            i.surplus_threshold,
-            i.unit_price
-        FROM inventory i
-        JOIN villages v ON v.id = i.village_id
-        JOIN commodities c ON c.id = i.commodity_id
-        WHERE (:village_id IS NULL OR i.village_id = :village_id)
-    """)
-
-    result = await db.execute(query, {"village_id": village_id})
+    if village_id:
+        query = text("""
+            SELECT
+                i.id AS inventory_id,
+                i.village_id,
+                v.name AS village_name,
+                v.subdistrict,
+                v.district,
+                v.latitude,
+                v.longitude,
+                i.commodity_id,
+                c.name AS commodity_name,
+                c.perishability,
+                i.current_stock,
+                i.capacity,
+                i.min_stock,
+                i.surplus_threshold,
+                i.unit_price
+            FROM inventory i
+            JOIN villages v ON v.id = i.village_id
+            JOIN commodities c ON c.id = i.commodity_id
+            WHERE i.village_id = :village_id
+        """)
+        result = await db.execute(query, {"village_id": village_id})
+    else:
+        query = text("""
+            SELECT
+                i.id AS inventory_id,
+                i.village_id,
+                v.name AS village_name,
+                v.subdistrict,
+                v.district,
+                v.latitude,
+                v.longitude,
+                i.commodity_id,
+                c.name AS commodity_name,
+                c.perishability,
+                i.current_stock,
+                i.capacity,
+                i.min_stock,
+                i.surplus_threshold,
+                i.unit_price
+            FROM inventory i
+            JOIN villages v ON v.id = i.village_id
+            JOIN commodities c ON c.id = i.commodity_id
+        """)
+        result = await db.execute(query)
     rows = result.fetchall()
 
     inventory_list = []
     for row in rows:
+        capacity = Decimal(str(row.capacity)) if row.capacity is not None else Decimal("0")
+        # Fall back to 70% / 20% of capacity when thresholds are NULL
+        surplus_threshold = (
+            Decimal(str(row.surplus_threshold))
+            if row.surplus_threshold is not None
+            else capacity * Decimal("0.7")
+        )
+        # Treat 0 the same as NULL — both mean "not configured"
+        min_stock = (
+            Decimal(str(row.min_stock))
+            if row.min_stock is not None and Decimal(str(row.min_stock)) > 0
+            else capacity * Decimal("0.2")
+        )
+        unit_price = (
+            Decimal(str(row.unit_price))
+            if row.unit_price is not None
+            else Decimal("0")
+        )
         inventory_list.append({
             "inventory_id": str(row.inventory_id),
             "village_id": str(row.village_id),
@@ -55,12 +96,12 @@ async def fetch_inventory_data(
             "longitude": float(row.longitude) if row.longitude else 0.0,
             "commodity_id": str(row.commodity_id),
             "commodity_name": row.commodity_name,
-            "perishability": row.perishability,
+            "perishability": row.perishability or "low",
             "current_stock": Decimal(str(row.current_stock)),
-            "capacity": Decimal(str(row.capacity)),
-            "min_stock": Decimal(str(row.min_stock)),
-            "surplus_threshold": Decimal(str(row.surplus_threshold)),
-            "unit_price": Decimal(str(row.unit_price)),
+            "capacity": capacity,
+            "min_stock": min_stock,
+            "surplus_threshold": surplus_threshold,
+            "unit_price": unit_price,
         })
 
     return inventory_list
@@ -71,46 +112,45 @@ async def find_nearby_villages(
     latitude: float,
     longitude: float,
     radius_km: float = 50.0,
+    exclude_village_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    """Find villages within radius using PostGIS ST_DWithin.
-
-    Assumes geography column (geometry(Point, 4326)).
-    """
+    """Find villages within radius using Haversine formula (no PostGIS required)."""
     query = text("""
-        SELECT
-            id,
-            name,
-            subdistrict,
-            district,
-            latitude,
-            longitude,
-            ST_Distance(
-                geography(ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)),
-                geography(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326))
-            ) / 1000.0 AS distance_km
-        FROM villages
-        WHERE ST_DWithin(
-            geography(ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)),
-            geography(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)),
-            :radius_meters
-        )
-        AND id != :exclude_village_id
+        SELECT id, name, subdistrict, district, latitude, longitude, distance_km
+        FROM (
+            SELECT
+                id,
+                name,
+                subdistrict,
+                district,
+                latitude,
+                longitude,
+                6371.0 * 2 * ASIN(SQRT(
+                    POWER(SIN(RADIANS(latitude - :latitude) / 2), 2) +
+                    COS(RADIANS(:latitude)) * COS(RADIANS(latitude)) *
+                    POWER(SIN(RADIANS(longitude - :longitude) / 2), 2)
+                )) AS distance_km
+            FROM villages
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        ) sub
+        WHERE distance_km <= :radius_km
         ORDER BY distance_km ASC
     """)
 
-    radius_meters = radius_km * 1000.0
     result = await db.execute(query, {
         "latitude": latitude,
         "longitude": longitude,
-        "radius_meters": radius_meters,
-        "exclude_village_id": "",
+        "radius_km": radius_km,
     })
     rows = result.fetchall()
 
     villages = []
     for row in rows:
+        vid = str(row.id)
+        if exclude_village_id and vid == exclude_village_id:
+            continue
         villages.append({
-            "id": str(row.id),
+            "id": vid,
             "name": row.name,
             "subdistrict": row.subdistrict,
             "district": row.district,
@@ -137,11 +177,14 @@ async def generate_recommendations(
     """
     inventory_list = await fetch_inventory_data(db, village_id)
 
-    # Classify
+    # Classify – strip inventory_id which is not part of the dataclass
+    def _to_village_inventory(inv: dict) -> "VillageInventory":
+        return VillageInventory(**{k: v for k, v in inv.items() if k != "inventory_id"})
+
     surplus_inventories = []
     shortage_inventories = []
     for inv in inventory_list:
-        status = classify_inventory(VillageInventory(**inv))
+        status = classify_inventory(_to_village_inventory(inv))
         if status == "surplus":
             surplus_inventories.append(inv)
         elif status == "shortage":
@@ -164,9 +207,10 @@ async def generate_recommendations(
         if not shortages:
             continue
 
-        # Find nearby shortage villages
+        # Find nearby shortage villages (excluding the surplus village itself)
         nearby_villages = await find_nearby_villages(
-            db, surplus["latitude"], surplus["longitude"], radius_km
+            db, surplus["latitude"], surplus["longitude"], radius_km,
+            exclude_village_id=surplus["village_id"],
         )
         nearby_ids = {nv["id"] for nv in nearby_villages}
         nearby_shortages = [
@@ -182,7 +226,7 @@ async def generate_recommendations(
         }
 
         # Calculate available surplus
-        sur_inv = VillageInventory(**surplus)
+        sur_inv = _to_village_inventory(surplus)
         available_surplus = sur_inv.current_stock - sur_inv.surplus_threshold
         remaining = available_surplus
 
@@ -190,8 +234,10 @@ async def generate_recommendations(
             if remaining <= 0:
                 break
 
-            short_inv = VillageInventory(**shortage)
+            short_inv = _to_village_inventory(shortage)
             needed = short_inv.min_stock - short_inv.current_stock
+            if needed <= 0:
+                continue
             matched_qty = min(remaining, needed)
 
             distance_km = distance_map.get(shortage["village_id"], 0.0)

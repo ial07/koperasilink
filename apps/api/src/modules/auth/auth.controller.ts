@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus, Req } from "@nestjs/common";
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Req } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { AuthService } from "./auth.service";
 import { RegisterDto, LoginDto } from "./dto/auth.dto";
@@ -9,10 +9,13 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post("register")
-  @UseGuards(AuthGuard("jwt"), RolesGuard)
-  @Roles("system_admin")
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Get("villages")
+  async getVillages() {
+    return this.authService.getVillages();
   }
 
   @Post("login")
