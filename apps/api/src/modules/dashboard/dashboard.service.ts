@@ -1,21 +1,21 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import type { Cache } from "cache-manager";
-import { PrismaService } from "../prisma/prisma.service";
-import { Prisma } from "@prisma/client";
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 export interface VillageCondition {
   id: string;
   name: string;
   subdistrict: string;
-  condition: "surplus" | "shortage" | "balanced";
+  condition: 'surplus' | 'shortage' | 'balanced';
   commodities: {
     id: string;
     name: string;
     unit: string;
     currentStock: number;
     capacity: number | null;
-    status: "surplus" | "shortage" | "normal";
+    status: 'surplus' | 'shortage' | 'normal';
   }[];
 }
 
@@ -29,18 +29,23 @@ export class DashboardService {
   // ── KPI (cached 5 min) ──
 
   async getKpi() {
-    const cacheKey = "dashboard:kpi";
+    const cacheKey = 'dashboard:kpi';
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
-    const [villages, inventoryRows, completedTxns, recomms] = await Promise.all([
-      this.prisma.village.findMany(),
-      this.prisma.inventory.findMany({
-        include: { village: true, commodity: { include: { unitRelation: true } } },
-      }),
-      this.prisma.transaction.count({ where: { status: "completed" } }),
-      this.prisma.aiRecommendation.findMany(),
-    ]);
+    const [villages, inventoryRows, completedTxns, recomms] = await Promise.all(
+      [
+        this.prisma.village.findMany(),
+        this.prisma.inventory.findMany({
+          include: {
+            village: true,
+            commodity: { include: { unitRelation: true } },
+          },
+        }),
+        this.prisma.transaction.count({ where: { status: 'completed' } }),
+        this.prisma.aiRecommendation.findMany(),
+      ],
+    );
 
     // ── Village conditions ──
     const villageMap = new Map<string, VillageCondition>();
@@ -49,43 +54,47 @@ export class DashboardService {
         id: v.id,
         name: v.name,
         subdistrict: v.subdistrict,
-        condition: "balanced",
+        condition: 'balanced',
         commodities: [],
       });
     }
 
     let totalStock = 0;
-    let villagesWithSurplus = new Set<string>();
-    let villagesWithShortage = new Set<string>();
+    const villagesWithSurplus = new Set<string>();
+    const villagesWithShortage = new Set<string>();
 
     for (const inv of inventoryRows) {
       totalStock += Number(inv.currentStock);
       const stock = Number(inv.currentStock);
       const capacity = inv.capacity ? Number(inv.capacity) : null;
-      const monthlyDemand = inv.monthlyDemand ? Number(inv.monthlyDemand) : null;
+      const monthlyDemand = inv.monthlyDemand
+        ? Number(inv.monthlyDemand)
+        : null;
       const minStock = inv.minStock ? Number(inv.minStock) : 0;
-      const surplusThreshold = inv.surplusThreshold ? Number(inv.surplusThreshold) : (capacity ?? stock * 2) * 0.7;
+      const surplusThreshold = inv.surplusThreshold
+        ? Number(inv.surplusThreshold)
+        : (capacity ?? stock * 2) * 0.7;
 
-      let status: "surplus" | "shortage" | "normal";
+      let status: 'surplus' | 'shortage' | 'normal';
       if (monthlyDemand && monthlyDemand > 0) {
         // Prioritaskan monthlyDemand
         if (stock >= monthlyDemand * 1.5) {
-          status = "surplus";
+          status = 'surplus';
           villagesWithSurplus.add(inv.villageId);
         } else if (stock <= monthlyDemand * 0.5) {
-          status = "shortage";
+          status = 'shortage';
           villagesWithShortage.add(inv.villageId);
         } else {
-          status = "normal";
+          status = 'normal';
         }
       } else if (capacity && stock > surplusThreshold) {
-        status = "surplus";
+        status = 'surplus';
         villagesWithSurplus.add(inv.villageId);
       } else if (stock < minStock) {
-        status = "shortage";
+        status = 'shortage';
         villagesWithShortage.add(inv.villageId);
       } else {
-        status = "normal";
+        status = 'normal';
       }
 
       const vc = villageMap.get(inv.villageId);
@@ -108,26 +117,26 @@ export class DashboardService {
 
     for (const [, vc] of villageMap) {
       if (vc.commodities.length === 0) {
-        vc.condition = "balanced";
+        vc.condition = 'balanced';
         balancedVillages++;
         continue;
       }
-      const hasShortage = vc.commodities.some((c) => c.status === "shortage");
-      const allSurplus = vc.commodities.every((c) => c.status === "surplus");
+      const hasShortage = vc.commodities.some((c) => c.status === 'shortage');
+      const allSurplus = vc.commodities.every((c) => c.status === 'surplus');
       if (hasShortage) {
-        vc.condition = "shortage";
+        vc.condition = 'shortage';
         shortageVillages++;
       } else if (allSurplus) {
-        vc.condition = "surplus";
+        vc.condition = 'surplus';
         surplusVillages++;
       } else {
-        vc.condition = "balanced";
+        vc.condition = 'balanced';
         balancedVillages++;
       }
     }
 
     const totalRecs = recomms.length;
-    const acceptedRecs = recomms.filter((r) => r.status === "accepted").length;
+    const acceptedRecs = recomms.filter((r) => r.status === 'accepted').length;
 
     const result = {
       totalVillages: villages.length,
@@ -137,7 +146,8 @@ export class DashboardService {
       surplusVillages,
       shortageVillages,
       balancedVillages,
-      recommendationRate: totalRecs > 0 ? Math.round((acceptedRecs / totalRecs) * 100) : 0,
+      recommendationRate:
+        totalRecs > 0 ? Math.round((acceptedRecs / totalRecs) * 100) : 0,
     };
 
     await this.cache.set(cacheKey, result, 300_000);
@@ -158,7 +168,7 @@ export class DashboardService {
         id: v.id,
         name: v.name,
         subdistrict: v.subdistrict,
-        condition: "balanced",
+        condition: 'balanced',
         commodities: [],
       });
     }
@@ -166,7 +176,9 @@ export class DashboardService {
     for (const inv of inventory) {
       const stock = Number(inv.currentStock);
       const capacity = inv.capacity ? Number(inv.capacity) : null;
-      const monthlyDemand = inv.monthlyDemand ? Number(inv.monthlyDemand) : null;
+      const monthlyDemand = inv.monthlyDemand
+        ? Number(inv.monthlyDemand)
+        : null;
       const minStock = inv.minStock ? Number(inv.minStock) : 0;
       const surplusThreshold = inv.surplusThreshold
         ? Number(inv.surplusThreshold)
@@ -174,14 +186,14 @@ export class DashboardService {
           ? capacity * 0.7
           : stock * 2 * 0.7;
 
-      let status: "surplus" | "shortage" | "normal";
+      let status: 'surplus' | 'shortage' | 'normal';
       if (monthlyDemand && monthlyDemand > 0) {
-        if (stock >= monthlyDemand * 1.5) status = "surplus";
-        else if (stock <= monthlyDemand * 0.5) status = "shortage";
-        else status = "normal";
-      } else if (capacity && stock > surplusThreshold) status = "surplus";
-      else if (stock < minStock) status = "shortage";
-      else status = "normal";
+        if (stock >= monthlyDemand * 1.5) status = 'surplus';
+        else if (stock <= monthlyDemand * 0.5) status = 'shortage';
+        else status = 'normal';
+      } else if (capacity && stock > surplusThreshold) status = 'surplus';
+      else if (stock < minStock) status = 'shortage';
+      else status = 'normal';
 
       const vc = map.get(inv.villageId);
       if (vc) {
@@ -198,14 +210,14 @@ export class DashboardService {
 
     for (const [, vc] of map) {
       if (vc.commodities.length === 0) {
-        vc.condition = "balanced";
+        vc.condition = 'balanced';
         continue;
       }
-      const hasShortage = vc.commodities.some((c) => c.status === "shortage");
-      const allSurplus = vc.commodities.every((c) => c.status === "surplus");
-      if (hasShortage) vc.condition = "shortage";
-      else if (allSurplus) vc.condition = "surplus";
-      else vc.condition = "balanced";
+      const hasShortage = vc.commodities.some((c) => c.status === 'shortage');
+      const allSurplus = vc.commodities.every((c) => c.status === 'surplus');
+      if (hasShortage) vc.condition = 'shortage';
+      else if (allSurplus) vc.condition = 'surplus';
+      else vc.condition = 'balanced';
     }
 
     return Array.from(map.values());
@@ -217,7 +229,7 @@ export class DashboardService {
     const [recentTxns, recentRecomms] = await Promise.all([
       this.prisma.transaction.findMany({
         take: 5,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         include: {
           fromVillage: { select: { name: true } },
           toVillage: { select: { name: true } },
@@ -226,7 +238,7 @@ export class DashboardService {
       }),
       this.prisma.aiRecommendation.findMany({
         take: 5,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -236,7 +248,7 @@ export class DashboardService {
   // ── Price trends (cached 10 min) ──
 
   async getPriceTrends(commodityId?: string, days = 7) {
-    const cacheKey = `dashboard:prices:${commodityId || "all"}:${days}`;
+    const cacheKey = `dashboard:prices:${commodityId || 'all'}:${days}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -256,7 +268,7 @@ export class DashboardService {
           createdAt: true,
           status: true,
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: 'asc' },
         take: 100,
       }),
       this.prisma.inventory.findMany({
@@ -266,7 +278,7 @@ export class DashboardService {
           village: { select: { id: true, name: true } },
           commodity: { select: { id: true, name: true, unitRelation: true } },
         },
-        orderBy: { lastUpdated: "desc" },
+        orderBy: { lastUpdated: 'desc' },
         take: 50,
       }),
     ]);

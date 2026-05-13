@@ -24,7 +24,7 @@ import { MovementType, SourceType } from '@prisma/client';
 export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
-    private readonly movementService: InventoryMovementService
+    private readonly movementService: InventoryMovementService,
   ) {}
 
   @Get()
@@ -58,7 +58,7 @@ export class InventoryController {
   async createMovement(
     @Param('id') id: string,
     @Body() body: { type: MovementType; quantity: number; notes?: string },
-    @Req() req: any
+    @Req() req: any,
   ) {
     return this.movementService.createMovement({
       inventoryId: id,

@@ -1,7 +1,7 @@
 export const TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["in_transit", "cancelled"],
-  in_transit: ["completed", "cancelled"],
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['in_transit', 'cancelled'],
+  in_transit: ['completed', 'cancelled'],
   completed: [],
   cancelled: [],
 };

@@ -1,5 +1,9 @@
-import { Injectable, ConflictException, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CommodityService {
@@ -12,7 +16,7 @@ export class CommodityService {
   async getUoms() {
     return this.prisma.unitOfMeasure.findMany({
       where: { isActive: true },
-      orderBy: { symbol: 'asc' }
+      orderBy: { symbol: 'asc' },
     });
   }
 
@@ -32,23 +36,25 @@ export class CommodityService {
     });
 
     if (existing) {
-      throw new ConflictException(`Komoditas dengan nama "${normalizedName}" sudah ada.`);
+      throw new ConflictException(
+        `Komoditas dengan nama "${normalizedName}" sudah ada.`,
+      );
     }
 
-    return this.prisma.commodity.create({ 
+    return this.prisma.commodity.create({
       data: {
         ...data,
         name: normalizedName,
-      } 
+      },
     });
   }
 
   async findAll(activeOnly: boolean = false) {
     const where = activeOnly ? { isActive: true } : {};
-    return this.prisma.commodity.findMany({ 
+    return this.prisma.commodity.findMany({
       where,
       include: { unitRelation: true },
-      orderBy: { name: "asc" } 
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -67,7 +73,9 @@ export class CommodityService {
       });
 
       if (existing && existing.id !== id) {
-        throw new ConflictException(`Komoditas dengan nama "${normalizedName}" sudah ada.`);
+        throw new ConflictException(
+          `Komoditas dengan nama "${normalizedName}" sudah ada.`,
+        );
       }
       data.name = normalizedName;
     }

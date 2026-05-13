@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GeospatialService } from './geospatial.service';
 
@@ -30,7 +25,11 @@ export class GeospatialController {
       return { error: 'Invalid lat/lng coordinates' };
     }
 
-    return this.geospatialService.findVillagesWithinRadius(latNum, lngNum, radiusNum);
+    return this.geospatialService.findVillagesWithinRadius(
+      latNum,
+      lngNum,
+      radiusNum,
+    );
   }
 
   /**
@@ -42,7 +41,10 @@ export class GeospatialController {
     @Query('villageA') villageA: string,
     @Query('villageB') villageB: string,
   ) {
-    return this.geospatialService.getDistanceBetweenVillages(villageA, villageB);
+    return this.geospatialService.getDistanceBetweenVillages(
+      villageA,
+      villageB,
+    );
   }
 
   /**

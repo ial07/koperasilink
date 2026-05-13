@@ -1,14 +1,15 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 
-import helmet from "helmet";
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production' 
-      ? ['log', 'error', 'warn', 'debug', 'verbose'] 
-      : ['log', 'error', 'warn', 'debug', 'verbose'],
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['log', 'error', 'warn', 'debug', 'verbose']
+        : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
 
   if (process.env.NODE_ENV === 'production') {
@@ -18,11 +19,13 @@ async function bootstrap() {
   // Security Headers
   app.use(helmet());
 
-  app.setGlobalPrefix("api/v1");
+  app.setGlobalPrefix('api/v1');
 
   // Dynamic CORS
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:3000"],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
 
@@ -35,6 +38,6 @@ async function bootstrap() {
   );
 
   await app.listen(4000);
-  console.log("🚀 API running on http://localhost:4000/api/v1");
+  console.log('🚀 API running on http://localhost:4000/api/v1');
 }
 bootstrap();

@@ -1,9 +1,9 @@
-import { Injectable, HttpException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, HttpException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RecommendationService {
-  private aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+  private aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
   constructor(private prisma: PrismaService) {}
 
@@ -35,8 +35,8 @@ export class RecommendationService {
           distanceKm: rec.distance_km,
           estimatedProfit: rec.estimated_profit,
           priorityScore: rec.priority_score ?? 0,
-          status: "pending",
-          triggeredBy: "ai_engine",
+          status: 'pending',
+          triggeredBy: 'ai_engine',
         },
       });
       saved.push(created);
@@ -47,7 +47,8 @@ export class RecommendationService {
 
   async findAll(filters: { status?: string; page?: number; limit?: number }) {
     const where: any = {};
-    if (filters.status && filters.status !== "all") where.status = filters.status;
+    if (filters.status && filters.status !== 'all')
+      where.status = filters.status;
 
     const [data, total] = await Promise.all([
       this.prisma.aiRecommendation.findMany({
@@ -57,7 +58,7 @@ export class RecommendationService {
           targetVillage: { select: { id: true, name: true } },
           commodity: { select: { id: true, name: true, unitRelation: true } },
         },
-        orderBy: { priorityScore: "desc" },
+        orderBy: { priorityScore: 'desc' },
         skip: ((filters.page || 1) - 1) * (filters.limit || 20),
         take: filters.limit || 20,
       }),

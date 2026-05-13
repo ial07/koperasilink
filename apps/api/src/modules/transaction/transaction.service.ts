@@ -1,14 +1,18 @@
-import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { isValidTransition, getNextStatus } from "./utils/status-machine";
-import { InventoryMovementService } from "../inventory/inventory-movement.service";
-import { MovementType, SourceType } from "@prisma/client";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { isValidTransition, getNextStatus } from './utils/status-machine';
+import { InventoryMovementService } from '../inventory/inventory-movement.service';
+import { MovementType, SourceType } from '@prisma/client';
 
 @Injectable()
 export class TransactionService {
   constructor(
     private prisma: PrismaService,
-    private movementService: InventoryMovementService
+    private movementService: InventoryMovementService,
   ) {}
 
   // ── Existing ──
@@ -33,7 +37,7 @@ export class TransactionService {
           toVillage: true,
           commodity: { include: { unitRelation: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -49,9 +53,10 @@ export class TransactionService {
     const recommendation = await this.prisma.aiRecommendation.findUnique({
       where: { id: recommendationId },
     });
-    if (!recommendation) throw new NotFoundException("Recommendation not found");
-    if (recommendation.status !== "accepted") {
-      throw new BadRequestException("Recommendation must be accepted first");
+    if (!recommendation)
+      throw new NotFoundException('Recommendation not found');
+    if (recommendation.status !== 'accepted') {
+      throw new BadRequestException('Recommendation must be accepted first');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -64,7 +69,7 @@ export class TransactionService {
           unitPrice: Number(recommendation.sourcePrice ?? 0),
           shippingCost: Number(recommendation.estimatedShippingCost ?? 0),
           totalAmount: Number(recommendation.estimatedProfit ?? 0),
-          status: "pending",
+          status: 'pending',
           aiRecommended: true,
           notes: `from rec: ${recommendation.id}`,
         },
@@ -72,7 +77,7 @@ export class TransactionService {
 
       await tx.aiRecommendation.update({
         where: { id: recommendationId },
-        data: { status: "converted" },
+        data: { status: 'converted' },
       });
 
       return transaction;
@@ -82,28 +87,30 @@ export class TransactionService {
   // ── Phase 9: Status transition ──
 
   async updateStatus(id: string, newStatus: string) {
-    const existing = await this.prisma.transaction.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("Transaction not found");
+    const existing = await this.prisma.transaction.findUnique({
+      where: { id },
+    });
+    if (!existing) throw new NotFoundException('Transaction not found');
     if (!isValidTransition(existing.status, newStatus)) {
       throw new BadRequestException(
-        `Invalid transition: ${existing.status} → ${newStatus}. Allowed: ${getNextStatus(existing.status).join(", ")}`,
+        `Invalid transition: ${existing.status} → ${newStatus}. Allowed: ${getNextStatus(existing.status).join(', ')}`,
       );
     }
 
     return this.prisma.$transaction(async (tx) => {
       const updateData: any = { status: newStatus };
       switch (newStatus) {
-        case "confirmed":
+        case 'confirmed':
           updateData.confirmedAt = new Date();
           break;
-        case "in_transit":
+        case 'in_transit':
           updateData.shippedAt = new Date();
           break;
-        case "completed":
+        case 'completed':
           updateData.completedAt = new Date();
           await this.adjustInventory(tx as any, existing);
           break;
-        case "cancelled":
+        case 'cancelled':
           updateData.cancelledAt = new Date();
           break;
       }
@@ -147,27 +154,33 @@ export class TransactionService {
     });
 
     if (!sourceInventory) {
-      throw new BadRequestException("Source inventory not found");
+      throw new BadRequestException('Source inventory not found');
     }
 
     // Emit OUT movement for sender
-    await this.movementService.createMovement({
-      inventoryId: sourceInventory.id,
-      type: MovementType.OUT,
-      quantity: Number(t.quantity),
-      sourceType: SourceType.TRANSACTION,
-      referenceId: `${t.id}_OUT`,
-      notes: `Transfer OUT to Village ${t.toVillageId}`,
-    }, tx);
+    await this.movementService.createMovement(
+      {
+        inventoryId: sourceInventory.id,
+        type: MovementType.OUT,
+        quantity: Number(t.quantity),
+        sourceType: SourceType.TRANSACTION,
+        referenceId: `${t.id}_OUT`,
+        notes: `Transfer OUT to Village ${t.toVillageId}`,
+      },
+      tx,
+    );
 
     // Emit IN movement for receiver
-    await this.movementService.createMovement({
-      inventoryId: targetInventory.id,
-      type: MovementType.IN,
-      quantity: Number(t.quantity),
-      sourceType: SourceType.TRANSACTION,
-      referenceId: `${t.id}_IN`,
-      notes: `Transfer IN from Village ${t.fromVillageId}`,
-    }, tx);
+    await this.movementService.createMovement(
+      {
+        inventoryId: targetInventory.id,
+        type: MovementType.IN,
+        quantity: Number(t.quantity),
+        sourceType: SourceType.TRANSACTION,
+        referenceId: `${t.id}_IN`,
+        notes: `Transfer IN from Village ${t.fromVillageId}`,
+      },
+      tx,
+    );
   }
 }

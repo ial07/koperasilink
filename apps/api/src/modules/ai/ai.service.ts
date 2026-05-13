@@ -6,16 +6,23 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AiService {
   constructor(private prisma: PrismaService) {}
 
-  async generateRecommendations(maxResults: number = 10, radiusKm: number = 50.0) {
+  async generateRecommendations(
+    maxResults: number = 10,
+    radiusKm: number = 50.0,
+  ) {
     try {
       // Call Python FastAPI service
-      const internalToken = process.env.AI_SERVICE_TOKEN || 'super-secret-internal-token-123';
-      const response = await axios.get(`http://localhost:8000/api/v1/recommendations/generate`, {
-        params: { max_results: maxResults, radius_km: radiusKm },
-        headers: {
-          'x-internal-token': internalToken
-        }
-      });
+      const internalToken =
+        process.env.AI_SERVICE_TOKEN || 'super-secret-internal-token-123';
+      const response = await axios.get(
+        `http://localhost:8000/api/v1/recommendations/generate`,
+        {
+          params: { max_results: maxResults, radius_km: radiusKm },
+          headers: {
+            'x-internal-token': internalToken,
+          },
+        },
+      );
 
       const data = response.data;
 
@@ -28,8 +35,8 @@ export class AiService {
               sourceVillageId: rec.from_village_id,
               targetVillageId: rec.to_village_id,
               commodityId: rec.commodity_id,
-              status: 'pending'
-            }
+              status: 'pending',
+            },
           });
 
           if (!existing) {
@@ -46,8 +53,8 @@ export class AiService {
                 sourcePrice: rec.unit_price,
                 status: 'pending',
                 triggeredBy: 'manual_api',
-                explanation: rec.explanation
-              }
+                explanation: rec.explanation,
+              },
             });
           }
         }
@@ -79,17 +86,19 @@ export class AiService {
         sourceVillage: true,
         targetVillage: true,
       },
-      orderBy: { priorityScore: 'desc' }
+      orderBy: { priorityScore: 'desc' },
     });
   }
 
   async acceptRecommendation(id: string) {
-    const rec = await this.prisma.aiRecommendation.findUnique({ where: { id } });
+    const rec = await this.prisma.aiRecommendation.findUnique({
+      where: { id },
+    });
     if (!rec) throw new HttpException('Recommendation not found', 404);
 
     await this.prisma.aiRecommendation.update({
       where: { id },
-      data: { status: 'accepted' }
+      data: { status: 'accepted' },
     });
 
     // Create a transaction
@@ -100,12 +109,13 @@ export class AiService {
         commodityId: rec.commodityId,
         quantity: rec.recommendedQuantity,
         unitPrice: rec.sourcePrice || 0,
-        totalAmount: Number(rec.recommendedQuantity) * Number(rec.sourcePrice || 0),
+        totalAmount:
+          Number(rec.recommendedQuantity) * Number(rec.sourcePrice || 0),
         shippingCost: rec.estimatedShippingCost || 0,
         status: 'pending',
         aiRecommended: true,
-        notes: 'Generated from AI Recommendation'
-      }
+        notes: 'Generated from AI Recommendation',
+      },
     });
 
     return { success: true, transaction };
@@ -114,7 +124,7 @@ export class AiService {
   async rejectRecommendation(id: string, reason?: string) {
     await this.prisma.aiRecommendation.update({
       where: { id },
-      data: { status: 'rejected', rejectionReason: reason || null }
+      data: { status: 'rejected', rejectionReason: reason || null },
     });
     return { success: true };
   }

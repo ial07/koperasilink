@@ -76,25 +76,26 @@ koperasilink/
 │
 ├── apps/
 │   ├── web/                # Frontend (Next.js)
-│   ├── api/                # Backend (NestJS)
-│   └── ai-service/         # AI service (FastAPI)
+│   └── api/                # Backend (NestJS)
+│
+├── services/
+│   └── ai/                 # AI Intelligence Service (FastAPI)
 │
 ├── packages/
-│   ├── ui/                 # Shared UI components
-│   ├── config/             # Shared configuration
-│   └── types/              # Shared types
+│   ├── database/           # Prisma schema and migrations
+│   ├── shared-types/       # Shared TypeScript interfaces
+│   └── validation/         # Shared Zod/Class-Validator schemas
 │
 ├── infra/
-│   ├── docker/             # Infrastructure setup
-│   └── scripts/            # DevOps scripts
+│   └── docker/             # Docker configuration (Postgres, Redis)
 │
 ├── docs/
-│   ├── execution/          # Development phases
-│   └── architecture/       # System design docs
+│   ├── architecture/       # Technical design docs
+│   └── execution/          # Development phase logs
 │
-├── turbo.json
-├── package.json
-└── .env.example
+├── turbo.json              # Turborepo config
+├── package.json            # Workspace root config
+└── .env.example            # Root environment template
 ```
 
 ---
@@ -111,12 +112,14 @@ Village
         └── InventoryMovement
 
 Commodity
+  ├── unitId → UnitOfMeasure
+  ├── categoryId → CommodityCategory
   └── Inventory
-  └── Transaction
 
 Transaction
   ├── sourceVillageId → Village
   ├── targetVillageId → Village
+  └── commodityId → Commodity
 
 User
   └── villageId → Village
@@ -286,6 +289,47 @@ pnpm --filter @koperasilink/api prisma db seed
 
 ---
 
+## 🛠 Database Management Flow
+
+KoperasiLink uses Prisma ORM. Follow this workflow for any schema changes:
+
+### 1. Modify Schema
+Update the Prisma schema file at `packages/database/prisma/schema.prisma`.
+
+### 2. Generate SQL Migration
+If you need versioned SQL migrations (recommended for production), use the `migrate diff` command:
+
+```bash
+# Generate the SQL diff between your current DB and the new schema
+pnpm --filter @koperasilink/api prisma migrate diff \
+  --from-url "$DATABASE_URL" \
+  --to-schema-datamodel packages/database/prisma/schema.prisma \
+  --script > packages/database/prisma/migrations/$(date +%Y%m%d%H%M)_<name>/migration.sql
+```
+
+### 3. Apply Changes
+For local development, you can sync the database quickly:
+
+```bash
+pnpm --filter @koperasilink/api prisma db push
+```
+
+For production or when using generated SQL files, apply the migration manually or via `psql`:
+
+```bash
+# Run specific migration file
+psql "$DATABASE_URL" -f packages/database/prisma/migrations/<folder>/migration.sql
+```
+
+### 4. Sync Prisma Client
+Always regenerate the Prisma Client after schema changes:
+
+```bash
+pnpm --filter @koperasilink/api prisma generate
+```
+
+---
+
 ### Run Development
 
 ```bash
@@ -403,14 +447,21 @@ For each shortage:
 ```json
 {
   "commodity": "cabai merah",
-  "targetVillage": "Sambirejo",
+  "targetVillage": "Talang Rimbo Baru",
   "recommendedSources": [
     {
-      "village": "Kali Padang",
-      "availableStock": 400,
-      "distanceKm": 12.5,
-      "estimatedCost": 75000,
-      "score": 0.92
+      "village": "Sambirejo",
+      "availableStock": 450,
+      "distanceKm": 8.2,
+      "estimatedCost": 45000,
+      "score": 0.89
+    },
+    {
+      "village": "Air Meles Bawah",
+      "availableStock": 150,
+      "distanceKm": 3.5,
+      "estimatedCost": 25000,
+      "score": 0.85
     }
   ]
 }

@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface TrendPrediction {
   villageId: string;
@@ -14,7 +14,7 @@ export interface TrendPrediction {
   /** Prediksi kebutuhan bulan depan (dari tren) */
   predictedDemand: number;
   /** Kondisi yang diprediksi: surplus/shortage/balanced */
-  predictedStatus: "surplus" | "shortage" | "balanced";
+  predictedStatus: 'surplus' | 'shortage' | 'balanced';
   /** Selisih: predictedDemand - currentStock */
   gap: number;
   /** Confidence: 0-1, semakin banyak data history semakin tinggi */
@@ -38,14 +38,17 @@ export class TrendAnalysisService {
     // Ambil history 6 bulan terakhir
     const history = await this.prisma.inventoryHistory.findMany({
       where: { villageId, commodityId },
-      orderBy: [{ recordedYear: "asc" }, { recordedMonth: "asc" }],
+      orderBy: [{ recordedYear: 'asc' }, { recordedMonth: 'asc' }],
       take: 6,
     });
 
     // Ambil current inventory
     const inventory = await this.prisma.inventory.findUnique({
       where: { villageId_commodityId: { villageId, commodityId } },
-      include: { commodity: { include: { unitRelation: true } }, village: true },
+      include: {
+        commodity: { include: { unitRelation: true } },
+        village: true,
+      },
     });
 
     if (!inventory || !inventory.commodity) return null;
@@ -54,11 +57,13 @@ export class TrendAnalysisService {
     const capacity = inventory.capacity ? Number(inventory.capacity) : null;
     const unit = inventory.commodity.unitRelation?.symbol || '-';
     const commodityName = inventory.commodity.name;
-    const villageName = inventory.village?.name ?? "Unknown";
+    const villageName = inventory.village?.name ?? 'Unknown';
 
     if (history.length === 0) {
       // Kalo gak ada history, fallback ke monthlyDemand kalo ada
-      const demand = inventory.monthlyDemand ? Number(inventory.monthlyDemand) : 0;
+      const demand = inventory.monthlyDemand
+        ? Number(inventory.monthlyDemand)
+        : 0;
       if (demand <= 0) return null;
       return {
         villageId,
@@ -101,12 +106,18 @@ export class TrendAnalysisService {
    */
   async predictAll(): Promise<TrendPrediction[]> {
     const inventories = await this.prisma.inventory.findMany({
-      include: { commodity: { include: { unitRelation: true } }, village: true },
+      include: {
+        commodity: { include: { unitRelation: true } },
+        village: true,
+      },
     });
 
     const results: TrendPrediction[] = [];
     for (const inv of inventories) {
-      const prediction = await this.predictDemand(inv.villageId, inv.commodityId);
+      const prediction = await this.predictDemand(
+        inv.villageId,
+        inv.commodityId,
+      );
       if (prediction) results.push(prediction);
     }
 
@@ -118,7 +129,7 @@ export class TrendAnalysisService {
    */
   async findPredictedShortage(): Promise<TrendPrediction[]> {
     const all = await this.predictAll();
-    return all.filter((p) => p.predictedStatus === "shortage");
+    return all.filter((p) => p.predictedStatus === 'shortage');
   }
 
   /**
@@ -126,7 +137,7 @@ export class TrendAnalysisService {
    */
   async findPredictedSurplus(): Promise<TrendPrediction[]> {
     const all = await this.predictAll();
-    return all.filter((p) => p.predictedStatus === "surplus");
+    return all.filter((p) => p.predictedStatus === 'surplus');
   }
 
   // ── Private helpers ──
@@ -162,7 +173,7 @@ export class TrendAnalysisService {
    * - Surplus: stock >= demand * 1.2 (lebih dari 1.2 bulan kebutuhan)
    * - Shortage: stock <= demand * 0.8 (kurang dari 80% kebutuhan)
    * - Balanced: di antaranya
-   * 
+   *
    * Artinya:
    *   surplus  = stok saat ini LEBIH dari cukup buat 1.2 bulan ke depan
    *   shortage = stok saat ini KURANG dari cukup buat 0.8 bulan ke depan
@@ -170,10 +181,10 @@ export class TrendAnalysisService {
   private classifyStatus(
     currentStock: number,
     predictedDemand: number,
-  ): "surplus" | "shortage" | "balanced" {
-    if (predictedDemand <= 0) return "balanced";
-    if (currentStock >= predictedDemand * 1.2) return "surplus";
-    if (currentStock <= predictedDemand * 0.8) return "shortage";
-    return "balanced";
+  ): 'surplus' | 'shortage' | 'balanced' {
+    if (predictedDemand <= 0) return 'balanced';
+    if (currentStock >= predictedDemand * 1.2) return 'surplus';
+    if (currentStock <= predictedDemand * 0.8) return 'shortage';
+    return 'balanced';
   }
 }

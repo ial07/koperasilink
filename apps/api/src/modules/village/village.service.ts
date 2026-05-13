@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateVillageData {
   name: string;
@@ -23,23 +23,28 @@ export class VillageService {
     return this.prisma.village.create({ data });
   }
 
-  async findAll(query?: { search?: string; status?: string; limit?: number; page?: number }) {
-    const { search, status = "active", limit = 20, page = 1 } = query ?? {};
+  async findAll(query?: {
+    search?: string;
+    status?: string;
+    limit?: number;
+    page?: number;
+  }) {
+    const { search, status = 'active', limit = 20, page = 1 } = query ?? {};
     const skip = (page - 1) * limit;
 
     const where: any = { status };
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { district: { contains: search, mode: "insensitive" } },
-        { subdistrict: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { district: { contains: search, mode: 'insensitive' } },
+        { subdistrict: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     const [data, total] = await Promise.all([
       this.prisma.village.findMany({
         where,
-        orderBy: { name: "asc" },
+        orderBy: { name: 'asc' },
         skip,
         take: limit,
       }),
@@ -52,7 +57,11 @@ export class VillageService {
   async findOne(id: string) {
     const village = await this.prisma.village.findUnique({
       where: { id },
-      include: { inventory: { include: { commodity: { include: { unitRelation: true } } } } },
+      include: {
+        inventory: {
+          include: { commodity: { include: { unitRelation: true } } },
+        },
+      },
     });
     if (!village) throw new NotFoundException(`Village ${id} not found`);
     return village;
@@ -65,6 +74,9 @@ export class VillageService {
 
   async remove(id: string) {
     await this.findOne(id); // ensures it exists
-    return this.prisma.village.update({ where: { id }, data: { status: "inactive" } });
+    return this.prisma.village.update({
+      where: { id },
+      data: { status: 'inactive' },
+    });
   }
 }

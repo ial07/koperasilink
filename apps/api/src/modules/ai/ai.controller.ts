@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Param, Query, UseGuards, Body, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  UseGuards,
+  Body,
+  Req,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AiService } from './ai.service';
 import { RolesGuard, Roles } from '../strategies/roles.guard';
@@ -16,7 +25,7 @@ export class AiController {
   ) {
     return this.aiService.generateRecommendations(
       maxResults ? parseInt(maxResults) : 10,
-      radiusKm ? parseFloat(radiusKm) : 50.0
+      radiusKm ? parseFloat(radiusKm) : 50.0,
     );
   }
 

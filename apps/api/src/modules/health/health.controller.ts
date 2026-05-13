@@ -13,24 +13,24 @@ export class HealthController {
   @Get()
   async check() {
     const checks = {
-      api: "ok",
-      database: "unknown",
-      redis: "unknown",
+      api: 'ok',
+      database: 'unknown',
+      redis: 'unknown',
       timestamp: new Date().toISOString(),
     };
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      checks.database = "ok";
+      checks.database = 'ok';
     } catch {
-      checks.database = "error";
+      checks.database = 'error';
     }
 
     try {
-      await this.cache.set("health:test", "ok", 10000); // 10s ttl
-      checks.redis = "ok";
+      await this.cache.set('health:test', 'ok', 10000); // 10s ttl
+      checks.redis = 'ok';
     } catch {
-      checks.redis = "error";
+      checks.redis = 'error';
     }
 
     return checks;

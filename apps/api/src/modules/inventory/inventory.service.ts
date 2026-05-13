@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
@@ -11,7 +15,7 @@ type InventoryStatus = 'surplus' | 'shortage' | 'balanced';
 export class InventoryService {
   constructor(
     private prisma: PrismaService,
-    private movementService: InventoryMovementService
+    private movementService: InventoryMovementService,
   ) {}
 
   /**
@@ -36,8 +40,12 @@ export class InventoryService {
     }
 
     // Fallback: capacity-based
-    const min = (minStock && minStock > 0) ? minStock : Math.floor(capacity * 0.2);
-    const surplus = (surplusThreshold && surplusThreshold > 0) ? surplusThreshold : Math.floor(capacity * 0.7);
+    const min =
+      minStock && minStock > 0 ? minStock : Math.floor(capacity * 0.2);
+    const surplus =
+      surplusThreshold && surplusThreshold > 0
+        ? surplusThreshold
+        : Math.floor(capacity * 0.7);
 
     if (currentStock >= surplus) return 'surplus';
     if (currentStock <= min) return 'shortage';
@@ -66,9 +74,12 @@ export class InventoryService {
       ];
     }
 
-    let raw = await this.prisma.inventory.findMany({
+    const raw = await this.prisma.inventory.findMany({
       where,
-      include: { village: true, commodity: { include: { unitRelation: true } } },
+      include: {
+        village: true,
+        commodity: { include: { unitRelation: true } },
+      },
       orderBy: { lastUpdated: 'desc' },
       skip,
       take: limitNum,
@@ -95,14 +106,18 @@ export class InventoryService {
         currentStock: Number(item.currentStock),
         capacity: item.capacity ? Number(item.capacity) : null,
         minStock: item.minStock ? Number(item.minStock) : null,
-        surplusThreshold: item.surplusThreshold ? Number(item.surplusThreshold) : null,
+        surplusThreshold: item.surplusThreshold
+          ? Number(item.surplusThreshold)
+          : null,
         monthlyDemand: item.monthlyDemand ? Number(item.monthlyDemand) : null,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
         computedStatus,
       };
     });
 
-    const filtered = status ? data.filter((d) => d.computedStatus === status) : data;
+    const filtered = status
+      ? data.filter((d) => d.computedStatus === status)
+      : data;
 
     return {
       data: filtered,
@@ -116,7 +131,10 @@ export class InventoryService {
   async findByVillage(villageId: string) {
     const items = await this.prisma.inventory.findMany({
       where: { villageId },
-      include: { commodity: { include: { unitRelation: true } }, village: true },
+      include: {
+        commodity: { include: { unitRelation: true } },
+        village: true,
+      },
       orderBy: { lastUpdated: 'desc' },
     });
 
@@ -135,7 +153,9 @@ export class InventoryService {
                 currentNum,
                 capacityNum,
                 item.minStock ? Number(item.minStock) : undefined,
-                item.surplusThreshold ? Number(item.surplusThreshold) : undefined,
+                item.surplusThreshold
+                  ? Number(item.surplusThreshold)
+                  : undefined,
                 item.monthlyDemand ? Number(item.monthlyDemand) : undefined,
               )
             : 'unknown',
@@ -145,7 +165,10 @@ export class InventoryService {
 
   async getSummaryByVillage() {
     const items = await this.prisma.inventory.findMany({
-      include: { commodity: { include: { unitRelation: true } }, village: true },
+      include: {
+        commodity: { include: { unitRelation: true } },
+        village: true,
+      },
     });
 
     const grouped: Record<
@@ -213,7 +236,9 @@ export class InventoryService {
     const result: Record<string, any> = {};
 
     for (const [villageId, group] of Object.entries(grouped)) {
-      const hasShortage = group.commodities.some((c) => c.status === 'shortage');
+      const hasShortage = group.commodities.some(
+        (c) => c.status === 'shortage',
+      );
       const allSurplus = group.commodities.every((c) => c.status === 'surplus');
 
       let villageStatus: string;
@@ -275,7 +300,9 @@ export class InventoryService {
             monthlyDemand: dto.monthlyDemand,
             unitPrice: dto.unitPrice,
             minStock: dto.capacity ? Math.floor(dto.capacity * 0.2) : undefined,
-            surplusThreshold: dto.capacity ? Math.floor(dto.capacity * 0.7) : undefined,
+            surplusThreshold: dto.capacity
+              ? Math.floor(dto.capacity * 0.7)
+              : undefined,
           },
         });
       } else {
@@ -291,11 +318,18 @@ export class InventoryService {
       }
 
       // Use movement service to adjust stock and record the log
-      await this.movementService.adjustStock(inv.id, dto.currentStock, 'Initial/Update via Form');
+      await this.movementService.adjustStock(
+        inv.id,
+        dto.currentStock,
+        'Initial/Update via Form',
+      );
 
       return tx.inventory.findUnique({
         where: { id: inv.id },
-        include: { village: true, commodity: { include: { unitRelation: true } } },
+        include: {
+          village: true,
+          commodity: { include: { unitRelation: true } },
+        },
       });
     });
   }
@@ -305,7 +339,9 @@ export class InventoryService {
     if (!existing) throw new NotFoundException('Inventory not found');
 
     const newStock = dto.currentStock ?? Number(existing.currentStock);
-    const effectiveCapacity = dto.capacity ?? (existing.capacity ? Number(existing.capacity) : undefined);
+    const effectiveCapacity =
+      dto.capacity ??
+      (existing.capacity ? Number(existing.capacity) : undefined);
     if (effectiveCapacity !== undefined && newStock > effectiveCapacity) {
       throw new BadRequestException('Stock cannot exceed capacity');
     }
@@ -323,12 +359,19 @@ export class InventoryService {
       });
 
       if (currentStock !== undefined) {
-        await this.movementService.adjustStock(id, currentStock, 'Update via Form');
+        await this.movementService.adjustStock(
+          id,
+          currentStock,
+          'Update via Form',
+        );
       }
 
       return tx.inventory.findUnique({
         where: { id },
-        include: { village: true, commodity: { include: { unitRelation: true } } },
+        include: {
+          village: true,
+          commodity: { include: { unitRelation: true } },
+        },
       });
     });
   }
@@ -346,7 +389,10 @@ export class InventoryService {
   async recordMonthlySnapshot(id: string) {
     const inv = await this.prisma.inventory.findUnique({
       where: { id },
-      include: { village: true, commodity: { include: { unitRelation: true } } },
+      include: {
+        village: true,
+        commodity: { include: { unitRelation: true } },
+      },
     });
     if (!inv) throw new NotFoundException('Inventory not found');
 
@@ -397,7 +443,10 @@ export class InventoryService {
 
     const inventories = await this.prisma.inventory.findMany({
       where,
-      include: { village: true, commodity: { include: { unitRelation: true } } },
+      include: {
+        village: true,
+        commodity: { include: { unitRelation: true } },
+      },
     });
 
     const now = new Date();

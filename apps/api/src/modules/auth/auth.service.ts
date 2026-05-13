@@ -3,11 +3,11 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
-import { PrismaService } from "../prisma/prisma.service";
-import { RegisterDto, LoginDto } from "./dto/auth.dto";
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,18 +17,20 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
-    if (existing) throw new ConflictException("Phone already registered");
+    const existing = await this.prisma.user.findUnique({
+      where: { phone: dto.phone },
+    });
+    if (existing) throw new ConflictException('Phone already registered');
 
     if (!dto.villageId) {
-      throw new BadRequestException("Village ID is required for registration");
+      throw new BadRequestException('Village ID is required for registration');
     }
 
     const village = await this.prisma.village.findUnique({
       where: { id: dto.villageId },
     });
     if (!village) {
-      throw new BadRequestException("Invalid village selected");
+      throw new BadRequestException('Invalid village selected');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -38,7 +40,7 @@ export class AuthService {
         phone: dto.phone,
         email: dto.email,
         password: hashedPassword,
-        role: "bumdes_operator",
+        role: 'bumdes_operator',
         verified: true, // Automatically verified since OTP is removed
         villageId: dto.villageId || null,
       },
@@ -56,25 +58,27 @@ export class AuthService {
 
   async getVillages() {
     return this.prisma.village.findMany({
-      where: { status: "active" },
+      where: { status: 'active' },
       select: {
         id: true,
         name: true,
         province: true,
         district: true,
       },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    const user = await this.prisma.user.findUnique({
+      where: { phone: dto.phone },
+    });
     if (!user || !user.password) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException("Invalid credentials");
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     return this.generateTokens(user.id, user.phone, user.role);
   }
@@ -84,13 +88,13 @@ export class AuthService {
       where: { token: oldToken },
     });
     if (!stored || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException("Invalid or expired refresh token");
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: stored.userId },
     });
-    if (!user) throw new UnauthorizedException("User not found");
+    if (!user) throw new UnauthorizedException('User not found');
 
     await this.prisma.refreshToken.delete({ where: { id: stored.id } });
 
@@ -100,8 +104,8 @@ export class AuthService {
   private async generateTokens(userId: string, phone: string, role: string) {
     const payload = { sub: userId, phone, role };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: "15m" });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await this.prisma.refreshToken.create({
